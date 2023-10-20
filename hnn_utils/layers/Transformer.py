@@ -16,21 +16,19 @@ class RotaryEncoder(nn.Module):
         Args:
             encoder_layer: encoder layer to use
             num_layers: number of encoder layers
-            t_fixup_init: whether to use t-fixup initialization
-
-        t-fixup initialization: https://www.cs.toronto.edu/~mvolkovs/ICML2020_tfixup.pdf
+            fix_init: Torch clones the encoder layer causing all layers to have identical initialization. This corrects that.
     """
     def __init__(self,
         encoder_layer: nn.Module,
         num_layers: int,
-        t_fixup_init: bool = True,
+        fix_init: bool = True,
     ) -> None:
         super().__init__()
 
         self.layers = _get_clones(encoder_layer, num_layers)
 
-        if t_fixup_init:
-            self._reset_parameters()
+        if fix_init:
+            self.reset_parameters()
 
     def forward(
         self,
@@ -47,20 +45,15 @@ class RotaryEncoder(nn.Module):
         return output
 
     @torch.no_grad()
-    def _reset_parameters(self):
-        # Apply Xavier initialization for all parameters
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
+    def reset_parameters(self):
+        for mod in self.modules():
+            # Linear and LayerNorm mods have this
+            if hasattr(mod, 'reset_parameters'):
+                mod.reset_parameters()
 
-        # Scale v, w matrices and mlp weights by 0.67N^(-0.25)
-        scale = 0.67 * (len(self.layers) ** (-0.25))
+        # Reset MHA
         for layer in self.layers:
-            layer.self_attn.v_proj.weight *= scale
-            layer.self_attn.out_proj.weight *= scale
-
-            layer.linear1.weight *= scale
-            layer.linear2.weight *= scale
+            layer.self_attn.reset_parameters()
 
 
 class RotaryDecoder(nn.Module):
@@ -70,21 +63,19 @@ class RotaryDecoder(nn.Module):
         Args:
             decoder_layer: decoder layer to use
             num_layers: number of decoder layers
-            t_fixup_init: whether to use t-fixup initialization
-
-        t-fixup initialization: https://www.cs.toronto.edu/~mvolkovs/ICML2020_tfixup.pdf
+            fix_init: Torch clones the encoder layer causing all layers to have identical initialization. This corrects that.
     """
     def __init__(self,
         decoder_layer: nn.Module,
         num_layers: int,
-        t_fixup_init: bool = True,
+        fix_init: bool = True,
     ) -> None:
         super().__init__()
 
         self.layers = _get_clones(decoder_layer, num_layers)
 
-        if t_fixup_init:
-            self._reset_parameters()
+        if fix_init:
+            self.reset_parameters()
 
     def forward(
         self,
@@ -105,23 +96,16 @@ class RotaryDecoder(nn.Module):
         return output
 
     @torch.no_grad()
-    def _reset_parameters(self):
-        # Apply Xavier initialization for all parameters
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
+    def reset_parameters(self):
+        for mod in self.modules():
+            # Linear and LayerNorm mods have this
+            if hasattr(mod, 'reset_parameters'):
+                mod.reset_parameters()
 
-        # Scale v, w matrices and mlp weights by (9N)^(-0.25)
-        scale = (9.0*len(self.layers)) ** (-0.25)
+        # Reset MHA
         for layer in self.layers:
-            layer.self_attn.v_proj.weight *= scale
-            layer.self_attn.out_proj.weight *= scale
-
-            layer.cross_attn.v_proj.weight *= scale
-            layer.cross_attn.out_proj.weight *= scale
-
-            layer.linear1.weight *= scale
-            layer.linear2.weight *= scale
+            layer.self_attn.reset_parameters()
+            layer.cross_attn.reset_parameters()
 
 
 class RotaryEncoderLayer(nn.Module):
@@ -316,7 +300,7 @@ class MultiheadAttention(nn.Module):
         if use_rotory_emb:
             self.rotory_emb = RotaryEmbedding(self.head_dim, use_xpos=True)
 
-        self._reset_parameters()
+        self.reset_parameters()
 
     def forward(
         self,
@@ -346,8 +330,8 @@ class MultiheadAttention(nn.Module):
         attn = F.scaled_dot_product_attention(q, k, v, mask, is_causal=is_causal, dropout_p=dropout)
         attn = attn.permute(0, 2, 1, 3).reshape(N, -1, self.embed_size)
         return self.out_proj(attn)
-    
-    def _reset_parameters(self):
+
+    def reset_parameters(self):
         nn.init.xavier_uniform_(self.q_proj.weight)
         nn.init.xavier_uniform_(self.k_proj.weight)
         nn.init.xavier_uniform_(self.v_proj.weight)
