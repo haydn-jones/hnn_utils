@@ -316,6 +316,8 @@ class MultiheadAttention(nn.Module):
         if use_rotory_emb:
             self.rotory_emb = RotaryEmbedding(self.head_dim, use_xpos=True)
 
+        self._reset_parameters()
+
     def forward(
         self,
         query: Tensor,
@@ -344,6 +346,16 @@ class MultiheadAttention(nn.Module):
         attn = F.scaled_dot_product_attention(q, k, v, mask, is_causal=is_causal, dropout_p=dropout)
         attn = attn.permute(0, 2, 1, 3).reshape(N, -1, self.embed_size)
         return self.out_proj(attn)
+    
+    def _reset_parameters(self):
+        nn.init.xavier_uniform_(self.q_proj.weight)
+        nn.init.xavier_uniform_(self.k_proj.weight)
+        nn.init.xavier_uniform_(self.v_proj.weight)
+
+        nn.init.constant_(self.q_proj.bias, 0.0)
+        nn.init.constant_(self.k_proj.bias, 0.0)
+        nn.init.constant_(self.v_proj.bias, 0.0)
+        nn.init.constant_(self.out_proj.bias, 0.0)
 
 class SinePositionalEncoding(nn.Module):
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5_000):
