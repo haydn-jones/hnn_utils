@@ -46,7 +46,7 @@ class RotaryEncoder(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self):
-        for mod in self.modules():
+        for mod in self.layers.modules():
             # Linear and LayerNorm mods have this
             if hasattr(mod, 'reset_parameters'):
                 mod.reset_parameters()
@@ -97,7 +97,7 @@ class RotaryDecoder(nn.Module):
 
     @torch.no_grad()
     def reset_parameters(self):
-        for mod in self.modules():
+        for mod in self.layers.modules():
             # Linear and LayerNorm mods have this
             if hasattr(mod, 'reset_parameters'):
                 mod.reset_parameters()
