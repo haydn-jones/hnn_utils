@@ -298,7 +298,7 @@ class MultiheadAttention(nn.Module):
         self.out_proj = nn.Linear(heads * self.head_dim, embed_dim)
 
         if use_rotory_emb:
-            self.rotory_emb = RotaryEmbedding(self.head_dim, use_xpos=True)
+            self.rotary_emb = RotaryEmbedding(self.head_dim, use_xpos=True)
 
         self.reset_parameters()
 
@@ -324,7 +324,7 @@ class MultiheadAttention(nn.Module):
         v = v.view(N, -1, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
 
         if hasattr(self, 'rotary_emb'):
-            q, k = self.rotory_emb.rotate_queries_and_keys(q, k)
+            q, k = self.rotary_emb.rotate_queries_and_keys(q, k)
 
         dropout = self.dropout if self.training else 0.0
         attn = F.scaled_dot_product_attention(q, k, v, mask, is_causal=is_causal, dropout_p=dropout)
