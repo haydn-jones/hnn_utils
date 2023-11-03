@@ -11,14 +11,16 @@ from torch import Tensor
 
 class RotaryEncoder(nn.Module):
     """
-        PyTorch API compatible (more or less) encoder for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) encoder for Transformers, with support for rotary embeddings.
 
-        Args:
-            encoder_layer: encoder layer to use
-            num_layers: number of encoder layers
-            fix_init: Torch clones the encoder layer causing all layers to have identical initialization. This corrects that.
+    Args:
+        encoder_layer: encoder layer to use
+        num_layers: number of encoder layers
+        fix_init: Torch clones the encoder layer causing all layers to have identical initialization. This corrects that.
     """
-    def __init__(self,
+
+    def __init__(
+        self,
         encoder_layer: nn.Module,
         num_layers: int,
         fix_init: bool = True,
@@ -48,7 +50,7 @@ class RotaryEncoder(nn.Module):
     def reset_parameters(self):
         for mod in self.layers.modules():
             # Linear and LayerNorm mods have this
-            if hasattr(mod, 'reset_parameters'):
+            if hasattr(mod, "reset_parameters"):
                 mod.reset_parameters()
 
         # Reset MHA
@@ -58,14 +60,16 @@ class RotaryEncoder(nn.Module):
 
 class RotaryDecoder(nn.Module):
     """
-        PyTorch API compatible (more or less) decoder for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) decoder for Transformers, with support for rotary embeddings.
 
-        Args:
-            decoder_layer: decoder layer to use
-            num_layers: number of decoder layers
-            fix_init: Torch clones the encoder layer causing all layers to have identical initialization. This corrects that.
+    Args:
+        decoder_layer: decoder layer to use
+        num_layers: number of decoder layers
+        fix_init: Torch clones the encoder layer causing all layers to have identical initialization. This corrects that.
     """
-    def __init__(self,
+
+    def __init__(
+        self,
         decoder_layer: nn.Module,
         num_layers: int,
         fix_init: bool = True,
@@ -91,7 +95,16 @@ class RotaryDecoder(nn.Module):
         output = tgt
 
         for layer in self.layers:
-            output = layer(output, memory, tgt_mask, memory_mask, tgt_key_padding_mask, memory_key_padding_mask, tgt_is_causal, memory_is_causal)
+            output = layer(
+                output,
+                memory,
+                tgt_mask,
+                memory_mask,
+                tgt_key_padding_mask,
+                memory_key_padding_mask,
+                tgt_is_causal,
+                memory_is_causal,
+            )
 
         return output
 
@@ -99,7 +112,7 @@ class RotaryDecoder(nn.Module):
     def reset_parameters(self):
         for mod in self.layers.modules():
             # Linear and LayerNorm mods have this
-            if hasattr(mod, 'reset_parameters'):
+            if hasattr(mod, "reset_parameters"):
                 mod.reset_parameters()
 
         # Reset MHA
@@ -110,20 +123,22 @@ class RotaryDecoder(nn.Module):
 
 class RotaryEncoderLayer(nn.Module):
     """
-        PyTorch API compatible (more or less) encoder layer for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) encoder layer for Transformers, with support for rotary embeddings.
 
-        Note: Some of the defaults do not match the PyTorch implementation as they are used in my own experiments.
+    Note: Some of the defaults do not match the PyTorch implementation as they are used in my own experiments.
 
-        Args:
-            d_model: dimension of the embeddings
-            nhead: number of attention heads
-            dim_feedforward: dimension of the feedforward network
-            dropout: dropout value
-            activation: activation function in feedforward (nn.Module)
-            norm_first: whether to apply layer norm before or after blocks
-            self_rotary: use rotary embeddings in self-attention
+    Args:
+        d_model: dimension of the embeddings
+        nhead: number of attention heads
+        dim_feedforward: dimension of the feedforward network
+        dropout: dropout value
+        activation: activation function in feedforward (nn.Module)
+        norm_first: whether to apply layer norm before or after blocks
+        self_rotary: use rotary embeddings in self-attention
     """
-    def __init__(self,
+
+    def __init__(
+        self,
         d_model: int,
         nhead: int,
         dim_feedforward: int = 2048,
@@ -134,7 +149,9 @@ class RotaryEncoderLayer(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_rotory_emb=self_rotary)
+        self.self_attn = MultiheadAttention(
+            d_model, nhead, dropout=dropout, use_rotory_emb=self_rotary
+        )
 
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -160,19 +177,35 @@ class RotaryEncoderLayer(nn.Module):
         x = src
 
         if self.norm_first:
-            x = x + self._sa_block(self.norm1(x), src_mask, src_key_padding_mask, is_causal=is_causal)
+            x = x + self._sa_block(
+                self.norm1(x), src_mask, src_key_padding_mask, is_causal=is_causal
+            )
             x = x + self._ff_block(self.norm2(x))
         else:
-            x = self.norm1(x + self._sa_block(x, src_mask, src_key_padding_mask, is_causal=is_causal))
+            x = self.norm1(
+                x
+                + self._sa_block(x, src_mask, src_key_padding_mask, is_causal=is_causal)
+            )
             x = self.norm2(x + self._ff_block(x))
 
         return x
 
     # self-attention block
     def _sa_block(
-        self, x: Tensor, attn_mask: Optional[Tensor], key_padding_mask: Optional[Tensor], is_causal: bool = False
+        self,
+        x: Tensor,
+        attn_mask: Optional[Tensor],
+        key_padding_mask: Optional[Tensor],
+        is_causal: bool = False,
     ) -> Tensor:
-        x = self.self_attn(x, x, x, attn_mask=attn_mask, key_padding_mask=key_padding_mask, is_causal=is_causal)
+        x = self.self_attn(
+            x,
+            x,
+            x,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            is_causal=is_causal,
+        )
         return self.dropout1(x)
 
     def _ff_block(self, x: Tensor) -> Tensor:
@@ -182,22 +215,24 @@ class RotaryEncoderLayer(nn.Module):
 
 class RotaryDecoderLayer(nn.Module):
     """
-        PyTorch API compatible (more or less) decoder layer for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) decoder layer for Transformers, with support for rotary embeddings.
 
-        Note: Some of the defaults do not match the PyTorch implementation, or may be 'strange' (i.e. memory_rotary=False)
-        as they are used in my own experiments.
+    Note: Some of the defaults do not match the PyTorch implementation, or may be 'strange' (i.e. memory_rotary=False)
+    as they are used in my own experiments.
 
-        Args:
-            d_model: dimension of the embeddings
-            nhead: number of attention heads
-            dim_feedforward: dimension of the feedforward network
-            dropout: dropout value
-            activation: activation function in feedforward (nn.Module)
-            norm_first: whether to apply layer norm before or after blocks
-            self_rotary: use rotary embeddings in self-attention
-            memory_rotary: use rotary embeddings in cross-attention
+    Args:
+        d_model: dimension of the embeddings
+        nhead: number of attention heads
+        dim_feedforward: dimension of the feedforward network
+        dropout: dropout value
+        activation: activation function in feedforward (nn.Module)
+        norm_first: whether to apply layer norm before or after blocks
+        self_rotary: use rotary embeddings in self-attention
+        memory_rotary: use rotary embeddings in cross-attention
     """
-    def __init__(self,
+
+    def __init__(
+        self,
         d_model: int,
         nhead: int,
         dim_feedforward: int = 2048,
@@ -211,8 +246,12 @@ class RotaryDecoderLayer(nn.Module):
 
         self.norm_first = norm_first
 
-        self.self_attn  = MultiheadAttention(d_model, nhead, dropout=dropout, use_rotory_emb=self_rotary)
-        self.cross_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_rotory_emb=memory_rotary)
+        self.self_attn = MultiheadAttention(
+            d_model, nhead, dropout=dropout, use_rotory_emb=self_rotary
+        )
+        self.cross_attn = MultiheadAttention(
+            d_model, nhead, dropout=dropout, use_rotory_emb=memory_rotary
+        )
 
         self.activation = activation
 
@@ -242,21 +281,50 @@ class RotaryDecoderLayer(nn.Module):
         x = tgt
 
         if self.norm_first:
-            x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_key_padding_mask, is_causal=tgt_is_causal)
-            x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_key_padding_mask, memory_is_causal)
+            x = x + self._sa_block(
+                self.norm1(x), tgt_mask, tgt_key_padding_mask, is_causal=tgt_is_causal
+            )
+            x = x + self._mha_block(
+                self.norm2(x),
+                memory,
+                memory_mask,
+                memory_key_padding_mask,
+                memory_is_causal,
+            )
             x = x + self._ff_block(self.norm3(x))
         else:
-            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_key_padding_mask, is_causal=tgt_is_causal))
-            x = self.norm2(x + self._mha_block(x, memory, memory_mask, memory_key_padding_mask, memory_is_causal))
+            x = self.norm1(
+                x
+                + self._sa_block(
+                    x, tgt_mask, tgt_key_padding_mask, is_causal=tgt_is_causal
+                )
+            )
+            x = self.norm2(
+                x
+                + self._mha_block(
+                    x, memory, memory_mask, memory_key_padding_mask, memory_is_causal
+                )
+            )
             x = self.norm3(x + self._ff_block(x))
 
         return x
 
     # self-attention block
     def _sa_block(
-        self, x: Tensor, attn_mask: Optional[Tensor], key_padding_mask: Optional[Tensor], is_causal: bool = False
+        self,
+        x: Tensor,
+        attn_mask: Optional[Tensor],
+        key_padding_mask: Optional[Tensor],
+        is_causal: bool = False,
     ) -> Tensor:
-        x = self.self_attn(x, x, x, attn_mask=attn_mask, key_padding_mask=key_padding_mask, is_causal=is_causal)
+        x = self.self_attn(
+            x,
+            x,
+            x,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            is_causal=is_causal,
+        )
         return self.dropout1(x)
 
     # multihead attention block
@@ -268,7 +336,14 @@ class RotaryDecoderLayer(nn.Module):
         key_padding_mask: Optional[Tensor],
         is_causal: bool = False,
     ) -> Tensor:
-        x = self.cross_attn(x, mem, mem, attn_mask=attn_mask, key_padding_mask=key_padding_mask, is_causal=is_causal)
+        x = self.cross_attn(
+            x,
+            mem,
+            mem,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+            is_causal=is_causal,
+        )
         return self.dropout2(x)
 
     def _ff_block(self, x: Tensor) -> Tensor:
@@ -277,11 +352,12 @@ class RotaryDecoderLayer(nn.Module):
 
 
 class MultiheadAttention(nn.Module):
-    def __init__(self,
+    def __init__(
+        self,
         embed_dim: int,
         heads: int,
         dropout: float = 0.0,
-        use_rotory_emb: bool = False
+        use_rotory_emb: bool = False,
     ):
         super().__init__()
 
@@ -290,7 +366,9 @@ class MultiheadAttention(nn.Module):
         self.head_dim = embed_dim // heads
         self.dropout = dropout
 
-        assert self.head_dim * heads == embed_dim, "Embedding size needs to be divisible by heads"
+        assert (
+            self.head_dim * heads == embed_dim
+        ), "Embedding size needs to be divisible by heads"
 
         self.q_proj = nn.Linear(self.embed_size, self.embed_size)
         self.k_proj = nn.Linear(self.embed_size, self.embed_size)
@@ -309,7 +387,7 @@ class MultiheadAttention(nn.Module):
         value: Tensor,
         key_padding_mask: Optional[Tensor] = None,
         attn_mask: Optional[Tensor] = None,
-        is_causal : bool = False
+        is_causal: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         N = query.shape[0]
 
@@ -323,11 +401,13 @@ class MultiheadAttention(nn.Module):
         k = k.view(N, -1, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
         v = v.view(N, -1, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
 
-        if hasattr(self, 'rotary_emb'):
+        if hasattr(self, "rotary_emb"):
             q, k = self.rotary_emb.rotate_queries_and_keys(q, k)
 
         dropout = self.dropout if self.training else 0.0
-        attn = F.scaled_dot_product_attention(q, k, v, mask, is_causal=is_causal, dropout_p=dropout)
+        attn = F.scaled_dot_product_attention(
+            q, k, v, mask, is_causal=is_causal, dropout_p=dropout
+        )
         attn = attn.permute(0, 2, 1, 3).reshape(N, -1, self.embed_size)
         return self.out_proj(attn)
 
@@ -340,6 +420,7 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.k_proj.bias, 0.0)
         nn.init.constant_(self.v_proj.bias, 0.0)
         nn.init.constant_(self.out_proj.bias, 0.0)
+
 
 class SinePositionalEncoding(nn.Module):
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5_000):
@@ -357,7 +438,13 @@ class SinePositionalEncoding(nn.Module):
         x = x + self.pe[:, : x.shape[1], :]
         return self.dropout(x)
 
-def combine_masks(q: Tensor, heads: int, attn_mask: Optional[Tensor], key_padding_mask: Optional[Tensor]) -> Optional[Tensor]:
+
+def combine_masks(
+    q: Tensor,
+    heads: int,
+    attn_mask: Optional[Tensor],
+    key_padding_mask: Optional[Tensor],
+) -> Optional[Tensor]:
     """
     Combines the masks for attention and key padding.
     """
@@ -388,6 +475,7 @@ def combine_masks(q: Tensor, heads: int, attn_mask: Optional[Tensor], key_paddin
         mask = mask + key_mask if mask is not None else key_mask
 
     return mask
+
 
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
