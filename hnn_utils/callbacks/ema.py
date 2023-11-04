@@ -19,8 +19,7 @@ class UpdateAfter(Enum):
 class EMACallback(L.Callback):
     """
     Lightning callback to compute a moving average of a models parameters.
-    The model weights in the state_dict will be swapped with the EMA weights, and the
-    original weights will be found in sd['callbacks']['EMACallback']['state_dict'].
+    You can easily load the ema
 
     Attributes:
         tau (float): The decay factor for EMA, should be between 0 and 1. Defaults to 0.9999.
@@ -28,7 +27,7 @@ class EMACallback(L.Callback):
         start_on_step (int): Start updating the EMA weights on this step. If None, start immediately.
         start_on_epoch (int): Start updating the EMA weights on this epoch. If None, start immediately.
         excluded_parameters (list of str): List of model parameter names to exclude from EMA.
-        use_for_val (bool): If True, use the EMA weights for validation. Defaults to True.
+        use_for_val (bool): If True, use the EMA weights for validation. Defaults to False.
     """
 
     def __init__(
@@ -38,7 +37,7 @@ class EMACallback(L.Callback):
         start_on_step: Optional[int] = None,
         start_on_epoch: Optional[int] = None,
         excluded_parameters: Optional[List[str]] = None,
-        use_for_val: bool = True,
+        use_for_val: bool = False,
     ):
         super().__init__()
 
@@ -65,7 +64,7 @@ class EMACallback(L.Callback):
             set(excluded_parameters) if excluded_parameters else set()
         )
 
-        self.ema_weights = None
+        self.state_dict = None
 
         # We track the step instead of using the trainer's global_step because
         # multiple optimizers can increment the global step multiple times per batch
@@ -101,18 +100,19 @@ class EMACallback(L.Callback):
 
             # If its not a float just copy it over
             if not param.is_floating_point() and not param.is_complex():
-                self.ema_weights[name].copy_(param.data)
+                self.state_dict[name].copy_(param.data)
+                continue
 
-            self.ema_weights[name].lerp_(param.data, 1.0 - self.tau)
+            self.state_dict[name].lerp_(param.data, 1.0 - self.tau)
 
     def _init(self, trainer: Trainer, pl_module: LightningModule):
-        if self.ema_weights is None:
-            self.ema_weights = sd_copy(pl_module.state_dict())
+        if self.state_dict is None:
+            self.state_dict = sd_copy(pl_module.state_dict())
             self.step = 0
             self.on_device = True
         elif not self.on_device:
-            self.ema_weights = {
-                k: v.to(pl_module.device) for k, v in self.ema_weights.items()
+            self.state_dict = {
+                k: v.to(pl_module.device) for k, v in self.state_dict.items()
             }
             self.on_device = True
 
@@ -126,18 +126,18 @@ class EMACallback(L.Callback):
             return trainer.current_epoch >= self.update_time
 
     @staticmethod
-    def load_original_weights(pl_module: LightningModule, ckpt_path: str) -> None:
-        """Load the original weights back into the model rather than the EMA weights."""
+    def load_ema_weights(pl_module: LightningModule, ckpt_path: str) -> None:
+        """Load the EMA weights from a checkpoint"""
 
         sd = torch.load(ckpt_path)
-        actual_weights = sd["callbacks"]["EMACallback"]["state_dict"]
-        pl_module.load_state_dict(actual_weights)
+        ema_weights = sd["callbacks"]["EMACallback"]["state_dict"]
+        pl_module.load_state_dict(ema_weights)
 
     def on_validation_start(self, trainer: Trainer, pl_module: LightningModule):
         """Swap the weights for validation"""
-        if self.use_for_val and self.ema_weights is not None:
+        if self.use_for_val and self.state_dict is not None:
             self._cached_sd = sd_copy(pl_module.state_dict())
-            pl_module.load_state_dict(self.ema_weights)
+            pl_module.load_state_dict(self.state_dict)
 
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule):
         """Swap the weights back after validation"""
@@ -151,37 +151,9 @@ class EMACallback(L.Callback):
                 "I haven't tested this with FSDP, DeepSpeed, or DDP. Don't use it."
             )
 
-    def on_save_checkpoint(
-        self, trainer: Trainer, pl_module: LightningModule, checkpoint: Dict[str, Any]
-    ) -> None:
-        if self.ema_weights is not None:
-            # Swap the weights so loading the checkpoint will load the EMA weights
-            (
-                checkpoint["callbacks"]["EMACallback"]["state_dict"],
-                checkpoint["state_dict"],
-            ) = (
-                checkpoint["state_dict"],
-                checkpoint["callbacks"]["EMACallback"]["state_dict"],
-            )
-
-    def on_load_checkpoint(
-        self, trainer: Trainer, pl_module: LightningModule, checkpoint: Dict[str, Any]
-    ) -> None:
-        # Swap the weights back so the checkpoint is in the original state and force load the original weights
-        if "callbacks" in checkpoint and "EMACallback" in checkpoint["callbacks"]:
-            (
-                checkpoint["callbacks"]["EMACallback"]["state_dict"],
-                checkpoint["state_dict"],
-            ) = (
-                checkpoint["state_dict"],
-                checkpoint["callbacks"]["EMACallback"]["state_dict"],
-            )
-
-            pl_module.load_state_dict(checkpoint["state_dict"])
-
     def state_dict(self) -> Dict[str, Any]:
         return {
-            "state_dict": self.ema_weights,
+            "state_dict": self.state_dict,
             "step": self.step,
             "update_start": self.update_start,
             "update_time": self.update_time,
@@ -192,7 +164,7 @@ class EMACallback(L.Callback):
         }
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        self.ema_weights = state_dict["state_dict"]
+        self.state_dict = state_dict["state_dict"]
         self.step = state_dict["step"]
         self.update_start = state_dict["update_start"]
         self.update_time = state_dict["update_time"]
