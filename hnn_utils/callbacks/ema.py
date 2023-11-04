@@ -64,7 +64,7 @@ class EMACallback(L.Callback):
             set(excluded_parameters) if excluded_parameters else set()
         )
 
-        self.state_dict = None
+        self.ema_weights = None
 
         # We track the step instead of using the trainer's global_step because
         # multiple optimizers can increment the global step multiple times per batch
@@ -100,19 +100,19 @@ class EMACallback(L.Callback):
 
             # If its not a float just copy it over
             if not param.is_floating_point() and not param.is_complex():
-                self.state_dict[name].copy_(param.data)
+                self.ema_weights[name].copy_(param.data)
                 continue
 
-            self.state_dict[name].lerp_(param.data, 1.0 - self.tau)
+            self.ema_weights[name].lerp_(param.data, 1.0 - self.tau)
 
     def _init(self, trainer: Trainer, pl_module: LightningModule):
-        if self.state_dict is None:
-            self.state_dict = sd_copy(pl_module.state_dict())
+        if self.ema_weights is None:
+            self.ema_weights = sd_copy(pl_module.state_dict())
             self.step = 0
             self.on_device = True
         elif not self.on_device:
-            self.state_dict = {
-                k: v.to(pl_module.device) for k, v in self.state_dict.items()
+            self.ema_weights = {
+                k: v.to(pl_module.device) for k, v in self.ema_weights.items()
             }
             self.on_device = True
 
@@ -135,9 +135,9 @@ class EMACallback(L.Callback):
 
     def on_validation_start(self, trainer: Trainer, pl_module: LightningModule):
         """Swap the weights for validation"""
-        if self.use_for_val and self.state_dict is not None:
+        if self.use_for_val and self.ema_weights is not None:
             self._cached_sd = sd_copy(pl_module.state_dict())
-            pl_module.load_state_dict(self.state_dict)
+            pl_module.load_state_dict(self.ema_weights)
 
     def on_validation_end(self, trainer: Trainer, pl_module: LightningModule):
         """Swap the weights back after validation"""
@@ -153,7 +153,7 @@ class EMACallback(L.Callback):
 
     def state_dict(self) -> Dict[str, Any]:
         return {
-            "state_dict": self.state_dict,
+            "state_dict": self.ema_weights,
             "step": self.step,
             "update_start": self.update_start,
             "update_time": self.update_time,
@@ -164,7 +164,7 @@ class EMACallback(L.Callback):
         }
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        self.state_dict = state_dict["state_dict"]
+        self.ema_weights = state_dict["state_dict"]
         self.step = state_dict["step"]
         self.update_start = state_dict["update_start"]
         self.update_time = state_dict["update_time"]
