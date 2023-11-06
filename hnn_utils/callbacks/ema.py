@@ -126,12 +126,12 @@ class EMACallback(L.Callback):
             return trainer.current_epoch >= self.update_time
 
     @staticmethod
-    def load_ema_weights(pl_module: LightningModule, ckpt_path: str) -> None:
+    def load_ema_weights(pl_module: LightningModule, ckpt_path: str, **kwargs) -> None:
         """Load the EMA weights from a checkpoint"""
 
         sd = torch.load(ckpt_path)
         ema_weights = sd["callbacks"]["EMACallback"]["state_dict"]
-        pl_module.load_state_dict(ema_weights)
+        pl_module.load_state_dict(ema_weights, **kwargs)
 
     def on_validation_start(self, trainer: Trainer, pl_module: LightningModule):
         """Swap the weights for validation"""
