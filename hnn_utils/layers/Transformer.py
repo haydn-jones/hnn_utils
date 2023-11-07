@@ -5,8 +5,9 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from rotary_embedding_torch import RotaryEmbedding
 from torch import Tensor
+
+from hnn_utils.layers.RotaryEmbedding import RotaryEmbedding
 
 
 class RotaryEncoder(nn.Module):
@@ -376,7 +377,7 @@ class MultiheadAttention(nn.Module):
         self.out_proj = nn.Linear(heads * self.head_dim, embed_dim)
 
         if use_rotory_emb:
-            self.rotary_emb = RotaryEmbedding(self.head_dim, use_xpos=True)
+            self.rotary_emb = RotaryEmbedding(self.head_dim)
 
         self.reset_parameters()
 
@@ -402,7 +403,7 @@ class MultiheadAttention(nn.Module):
         v = v.view(N, -1, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
 
         if hasattr(self, "rotary_emb"):
-            q, k = self.rotary_emb.rotate_queries_and_keys(q, k)
+            q, k = self.rotary_emb(q, k)
 
         dropout = self.dropout if self.training else 0.0
         attn = F.scaled_dot_product_attention(
