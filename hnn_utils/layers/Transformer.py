@@ -150,7 +150,7 @@ class RotaryEncoderLayer(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.self_attn = MultiheadAttention(
+        self.self_attn = RotaryMultiheadAttention(
             d_model, nhead, dropout=dropout, use_rotory_emb=self_rotary
         )
 
@@ -247,10 +247,10 @@ class RotaryDecoderLayer(nn.Module):
 
         self.norm_first = norm_first
 
-        self.self_attn = MultiheadAttention(
+        self.self_attn = RotaryMultiheadAttention(
             d_model, nhead, dropout=dropout, use_rotory_emb=self_rotary
         )
-        self.cross_attn = MultiheadAttention(
+        self.cross_attn = RotaryMultiheadAttention(
             d_model, nhead, dropout=dropout, use_rotory_emb=memory_rotary
         )
 
@@ -352,13 +352,13 @@ class RotaryDecoderLayer(nn.Module):
         return self.dropout3(x)
 
 
-class MultiheadAttention(nn.Module):
+class RotaryMultiheadAttention(nn.Module):
     def __init__(
         self,
         embed_dim: int,
         heads: int,
         dropout: float = 0.0,
-        use_rotory_emb: bool = False,
+        use_rotory_emb: bool = True,
     ):
         super().__init__()
 
