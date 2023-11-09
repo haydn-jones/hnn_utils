@@ -19,7 +19,7 @@ class RotaryEmbedding(nn.Module):
         super().__init__()
 
         freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
-        self.register_buffer("freqs", freqs)
+        self.register_buffer("freqs", freqs.unsqueeze(0))
 
         scale = (torch.arange(0, dim, 2) + 0.4 * dim) / (1.4 * dim)
         self.register_buffer("scale", scale)
@@ -27,22 +27,24 @@ class RotaryEmbedding(nn.Module):
         self.scale_base = scale_base
 
     def forward(self, q, k):
-        device, dtype, seq_len = q.device, q.dtype, q.shape[-2]
+        seq_len = q.shape[-2]
 
-        seq = torch.arange(seq_len, device=device, dtype=dtype)
+        seq = torch.arange(seq_len, device=q.device, dtype=q.dtype)
 
-        freqs = seq.unsqueeze(1) * self.freqs.unsqueeze(0)
+        freqs = seq.unsqueeze(1) @ self.freqs.type_as(q)
         freqs = torch.repeat_interleave(freqs, 2, dim=-1)
 
         power = (seq - seq_len // 2) / self.scale_base
-        scale = self.scale.pow(power.unsqueeze(-1))
+        scale = self.scale.pow(power.unsqueeze(-1)).type_as(q)
+
         scale = torch.cat((scale, scale), dim=-1)
 
         fc = freqs.cos()
         fs = freqs.sin()
 
         rotated_q = self.apply_rotary_emb(fc, fs, q, scale=scale)
-        rotated_k = self.apply_rotary_emb(fc, fs, k, scale=scale.reciprocal())
+        # Idk why but reciprocal will sometimes promote f16 to f32
+        rotated_k = self.apply_rotary_emb(fc, fs, k, scale=scale.reciprocal().type_as(q))
 
         return rotated_q, rotated_k
 
