@@ -369,7 +369,7 @@ class RotaryMultiheadAttention(nn.Module):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         N = query.shape[0]
 
-        mask = combine_masks(query, self.num_heads, attn_mask, key_padding_mask)
+        mask = combine_masks(query, key, self.num_heads, attn_mask, key_padding_mask)
 
         q = self.q_proj(query)
         k = self.k_proj(key)
