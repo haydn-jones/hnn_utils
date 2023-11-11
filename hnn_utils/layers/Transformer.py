@@ -31,7 +31,7 @@ class RotaryEncoder(nn.Module):
         self.layers = _get_clones(encoder_layer, num_layers)
 
         if fix_init:
-            self.reset_parameters()
+            _transformer_reset(self)
 
     def forward(
         self,
@@ -46,17 +46,6 @@ class RotaryEncoder(nn.Module):
             output = layer(output, mask, src_key_padding_mask, is_causal=is_causal)
 
         return output
-
-    @torch.no_grad()
-    def reset_parameters(self):
-        for mod in self.layers.modules():
-            # Linear and LayerNorm mods have this
-            if hasattr(mod, "reset_parameters"):
-                mod.reset_parameters()
-
-        # Reset MHA
-        for layer in self.layers:
-            layer.self_attn.reset_parameters()
 
 
 class RotaryDecoder(nn.Module):
@@ -80,7 +69,7 @@ class RotaryDecoder(nn.Module):
         self.layers = _get_clones(decoder_layer, num_layers)
 
         if fix_init:
-            self.reset_parameters()
+            _transformer_reset(self)
 
     def forward(
         self,
@@ -108,18 +97,6 @@ class RotaryDecoder(nn.Module):
             )
 
         return output
-
-    @torch.no_grad()
-    def reset_parameters(self):
-        for mod in self.layers.modules():
-            # Linear and LayerNorm mods have this
-            if hasattr(mod, "reset_parameters"):
-                mod.reset_parameters()
-
-        # Reset MHA
-        for layer in self.layers:
-            layer.self_attn.reset_parameters()
-            layer.cross_attn.reset_parameters()
 
 
 class RotaryEncoderLayer(nn.Module):
@@ -442,6 +419,7 @@ class SinePositionalEncoding(nn.Module):
 
 def combine_masks(
     q: Tensor,
+    k: Tensor,
     heads: int,
     attn_mask: Optional[Tensor],
     key_padding_mask: Optional[Tensor],
@@ -449,7 +427,8 @@ def combine_masks(
     """
     Combines the masks for attention and key padding.
     """
-    N, sl = q.shape[0], q.shape[1]
+    N, L = q.shape[0], q.shape[-2]
+    S = k.shape[-2]
 
     key_padding_mask = F._canonical_mask(
         mask=key_padding_mask,
@@ -472,11 +451,29 @@ def combine_masks(
     if attn_mask is not None:
         mask = attn_mask
     if key_padding_mask is not None:
-        key_mask = key_padding_mask.view(N, 1, 1, sl).expand(N, heads, sl, sl)
+        key_mask = key_padding_mask.view(N, 1, 1, key_padding_mask.shape[-1]).expand(
+            N, heads, L, S
+        )
         mask = mask + key_mask if mask is not None else key_mask
 
     return mask
 
 
 def _get_clones(module, N):
-    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
+
+
+def _transformer_reset(module: nn.Module):
+    for mod in module.modules():
+        if hasattr(mod, "reset_parameters"):
+            mod.reset_parameters()
+        elif hasattr(mod, "reset_parameters_"):
+            mod.reset_parameters_()
+        elif hasattr(mod, "_reset_parameters"):
+            mod._reset_parameters()
+
+    for mod in module.modules():
+        if isinstance(mod, RotaryMultiheadAttention):
+            mod.reset_parameters()
+        elif isinstance(mod, nn.MultiheadAttention):
+            mod._reset_parameters()
