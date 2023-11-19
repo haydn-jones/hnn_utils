@@ -131,19 +131,16 @@ class RotaryEncoderLayer(nn.Module):
             d_model, nhead, dropout=dropout, use_rotory_emb=self_rotary
         )
 
-        # Implementation of Feedforward model
-        self.linear1 = nn.Linear(d_model, dim_feedforward)
-        self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(dim_feedforward, d_model)
+        self._ff_block = FFNSwiGLU(d_model, dim_feedforward, dropout=dropout)
 
         self.norm_first = norm_first
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
+
+        self.norm1 = RMSNorm(d_model)
+        self.norm2 = RMSNorm(d_model)
 
         self.activation = activation
 
-        self.dropout1 = nn.Dropout(dropout)
-        self.dropout2 = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
 
     def forward(
         self,
@@ -184,11 +181,7 @@ class RotaryEncoderLayer(nn.Module):
             key_padding_mask=key_padding_mask,
             is_causal=is_causal,
         )
-        return self.dropout1(x)
-
-    def _ff_block(self, x: Tensor) -> Tensor:
-        x = self.linear2(self.dropout(self.activation(self.linear1(x))))
-        return self.dropout2(x)
+        return self.dropout(x)
 
 
 class RotaryDecoderLayer(nn.Module):
@@ -233,17 +226,14 @@ class RotaryDecoderLayer(nn.Module):
 
         self.activation = activation
 
-        # Implementation of Feedforward model
-        self.linear1 = nn.Linear(d_model, dim_feedforward)
-        self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(dim_feedforward, d_model)
+        self._ff_block = FFNSwiGLU(d_model, dim_feedforward, dropout=dropout)
 
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
-        self.norm3 = nn.LayerNorm(d_model)
+        self.norm1 = RMSNorm(d_model)
+        self.norm2 = RMSNorm(d_model)
+        self.norm3 = RMSNorm(d_model)
+
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
-        self.dropout3 = nn.Dropout(dropout)
 
     def forward(
         self,
@@ -323,10 +313,6 @@ class RotaryDecoderLayer(nn.Module):
             is_causal=is_causal,
         )
         return self.dropout2(x)
-
-    def _ff_block(self, x: Tensor) -> Tensor:
-        x = self.linear2(self.dropout(self.activation(self.linear1(x))))
-        return self.dropout3(x)
 
 
 class RotaryMultiheadAttention(nn.Module):
@@ -415,6 +401,39 @@ class SinePositionalEncoding(nn.Module):
     def forward(self, x):
         x = x + self.pe[:, : x.shape[1], :]
         return self.dropout(x)
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+
+        self.eps = eps
+        self.register_parameter("weight", nn.Parameter(torch.ones(dim)))
+
+    def forward(self, x):
+        return self.weight.type_as(x) * self._norm(x).type_as(x)
+
+    def _norm(self, x):
+        return x * torch.rsqrt(x.square().mean(dim=-1, keepdim=True) + self.eps)
+
+
+class FFNSwiGLU(nn.Module):
+    def __init__(self, dim, dim_feedforward, dropout=0.0):
+        super().__init__()
+
+        self.w1 = nn.Linear(dim, dim_feedforward, bias=False)
+        self.w2 = nn.Linear(dim, dim_feedforward, bias=False)
+
+        self.w3 = nn.Sequential(
+            nn.Dropout(dropout),
+            nn.Linear(dim_feedforward, dim, bias=False),
+        )
+
+    def forward(self, x):
+        swish = F.silu(self.w1(x))
+        x = swish * self.w2(x)
+        x = self.w3(x)
+        return x
 
 
 def combine_masks(
