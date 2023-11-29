@@ -1,0 +1,18 @@
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+
+RUN apt update
+RUN apt install git build-essential ninja-build zsh wget -y
+
+# Install Python3 and python-is-python3
+RUN apt install python3 python3-pip python-is-python3 -y
+
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Python packages
+RUN pip install tqdm wandb selfies guacamol lightning rich pandas numpy matplotlib fire fcd rdkit transformers tokenizers datasets hnn_utils
+
+# User stuff
+WORKDIR /workspace
+ENV USER=haydnj
+
+RUN git config --global --add safe.directory /workspace

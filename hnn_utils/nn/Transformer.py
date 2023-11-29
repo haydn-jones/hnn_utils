@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from hnn_utils.layers.RotaryEmbedding import RotaryEmbedding
+from hnn_utils.nn.RotaryEmbedding import RotaryEmbedding
 
 
 class RotaryEncoder(nn.Module):
