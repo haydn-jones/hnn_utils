@@ -3,31 +3,29 @@ from torch import Tensor
 import math
 
 
-def upbounded_omega(p: Tensor):
+def upbounded_omega(p: Tensor, omega: float = 1.0):
     """
-    More stable parameterization of variance, in addition the variance is capped at 1.
+    More stable parameterization of variance, in addition the variance is capped at omega (default 1).
     See https://arxiv.org/abs/2106.13739 eqn. 12 for details
     """
     mask = p <= 0
 
-    pexp = p.exp()
-    npexp = (-p).exp()
+    ppos = p.clamp(0.0).mul(-1.0).exp()
+    pneg = p.clamp_max(0.0).exp()
 
     sigma = torch.where(
         mask,
-        0.5 * pexp,
-        0.5 * (2.0 - npexp),
+        (omega / 2) * pneg,
+        (omega / 2) * (2.0 - ppos),
     )
 
-    lo = math.log(0.5)
-    # Clamp to avoid log(0), 1e-8 is not representable in fp16 (it is in bfloat16 though), so we use 1e-5 to be safe
-    # Even though the NaNs/nonfinites are masked out, they still can cause issues with gradient propagation
+    eps = 1e-5
+    lo = math.log(omega / 2.0)
     logsigma = torch.where(
         mask,
         p + lo,
-        (2.0 - npexp).clamp_min(1e-5).log() + lo,
+        (2.0 - ppos).clamp_min(eps).log() + lo,
     )
-
     return sigma.type_as(p), logsigma.type_as(p)
 
 
