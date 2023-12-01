@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hnn_utils",
-    version="0.1.20",
+    version="0.1.21",
     packages=find_packages(),
     install_requires=[
         "torch",

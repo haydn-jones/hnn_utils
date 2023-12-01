@@ -3,31 +3,25 @@ from torch import Tensor
 import math
 
 
-def upbounded_omega(p: Tensor, min_sigma: float = 0.01, max_sigma: float = 1.0):
+def exp_lin(p: Tensor, min_sigma: float = 0.0, max_sigma: float = 1.0):
     """
-    More stable parameterization of variance, in addition the variance is capped at omega (default 1).
-    See https://arxiv.org/abs/2106.13739 eqn. 12 for details
+    More stable parameterization of standard deviation, constrained to be in [min_sigma, max_sigma]
+    See https://arxiv.org/abs/2106.13739 eqn. 18 for details
     """
+    pplus = p.clamp_min(0.0)
+    pneg = p.clamp_max(0.0)
     mask = p <= 0
 
-    ppos = p.clamp_min(0.0).mul(-1.0).exp()
-    pneg = p.clamp_max(0.0).exp()
+    sigma = pneg.exp() * mask + (pplus + 1.0) * (~mask)
+    logsigma = pneg * mask + (pplus + 1.0).log() * (~mask)
 
-    sigma = torch.where(
-        mask,
-        (max_sigma / 2) * pneg,
-        (max_sigma / 2) * (2.0 - ppos),
-    )
+    sigma = sigma.clamp(min=min_sigma, max=max_sigma)
+    logsigma = logsigma.clamp(min=math.log(min_sigma), max=math.log(max_sigma))
 
-    lo = math.log(max_sigma / 2.0)
-    logsigma = torch.where(
-        mask,
-        p + lo,
-        (2.0 - ppos).log() + lo,
+    return (
+        sigma.type_as(p),
+        logsigma.type_as(p),
     )
-    return sigma.clamp_min(min_sigma).type_as(p), logsigma.clamp_min(
-        math.log(min_sigma)
-    ).type_as(p)
 
 
 def gaussian_kl(
