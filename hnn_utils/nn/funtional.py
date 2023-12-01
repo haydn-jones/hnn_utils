@@ -16,7 +16,10 @@ def exp_lin(p: Tensor, min_sigma: float = 0.0, max_sigma: float = 1.0):
     logsigma = pneg * mask + (pplus + 1.0).log() * (~mask)
 
     sigma = sigma.clamp(min=min_sigma, max=max_sigma)
-    logsigma = logsigma.clamp(min=math.log(min_sigma), max=math.log(max_sigma))
+    logsigma = logsigma.clamp(
+        min=math.log(min_sigma) if min_sigma > 0.0 else -torch.inf,
+        max=math.log(max_sigma),
+    )
 
     return (
         sigma.type_as(p),
