@@ -6,20 +6,19 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
-    steps:
-      - name: build-base
-        uses: haydn-jones/hnn_utils/.github/workflows/ml_base-docker-publish.yml@main
-
-      - name: build-jax
-        uses: haydn-jones/hnn_utils/.github/workflows/jax-docker-publish.yml@main
-
-      - name: build-torch
-        uses: haydn-jones/hnn_utils/.github/workflows/torch-docker-publish.yml@main
+  build-base:
+    uses: haydn-jones/hnn_utils/.github/workflows/ml_base-docker-publish.yml@main
+  build-jax:
+    uses: haydn-jones/hnn_utils/.github/workflows/jax-docker-publish.yml@main
+  build-torch:
+    uses: haydn-jones/hnn_utils/.github/workflows/torch-docker-publish.yml@main
