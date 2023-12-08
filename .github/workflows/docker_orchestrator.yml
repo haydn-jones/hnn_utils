@@ -6,27 +6,20 @@ on:
       - main
       - master
 
-permissions:
-  contents: read
-  packages: write
-  id-token: write
-
 jobs:
-  build-base:
-    uses: haydn-jones/hnn_utils/.github/workflows/ml_base-docker-publish.yml@main
-    secrets: inherit
-    concurrency:
-      group: doodoo
-      cancel-in-progress: false
-  build-jax:
-    uses: haydn-jones/hnn_utils/.github/workflows/jax-docker-publish.yml@main
-    secrets: inherit
-    concurrency:
-      group: doodoo
-      cancel-in-progress: false
-  build-torch:
-    uses: haydn-jones/hnn_utils/.github/workflows/torch-docker-publish.yml@main
-    secrets: inherit
-    concurrency:
-      group: doodoo
-      cancel-in-progress: false
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: build-base
+        uses: ./.github/workflows/ml_base-docker-publish.yml@main
+
+      - name: build-jax
+        uses: ./.github/workflows/jax-docker-publish.yml@main
+
+      - name: build-torch
+        uses: ./.github/workflows/torch-docker-publish.yml@main
