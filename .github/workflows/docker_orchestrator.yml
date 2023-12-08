@@ -6,26 +6,22 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 jobs:
   build-base:
     uses: haydn-jones/hnn_utils/.github/workflows/ml_base-docker-publish.yml@main
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
+    secrets: inherit
 
   build-jax:
     uses: haydn-jones/hnn_utils/.github/workflows/jax-docker-publish.yml@main
     needs: build-base
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
+    secrets: inherit
 
   build-torch:
     uses: haydn-jones/hnn_utils/.github/workflows/torch-docker-publish.yml@main
     needs: build-base
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
+    secrets: inherit
