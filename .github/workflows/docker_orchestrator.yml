@@ -6,23 +6,17 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: build-base
-        uses: ./.github/workflows/ml_base-docker-publish.yml
-
-      - name: build-jax
-        uses: ./.github/workflows/jax-docker-publish.yml
-
-      - name: build-torch
-        uses: ./.github/workflows/torch-docker-publish.yml
+  build-base:
+    uses: haydn-jones/hnn_utils/.github/workflows/ml_base-docker-publish.yml@main
+  build-jax:
+    uses: haydn-jones/hnn_utils/.github/workflows/jax-docker-publish.yml@main
+    needs: build-base
+  build-torch:
+    uses: haydn-jones/hnn_utils/.github/workflows/torch-docker-publish.yml@main
+    needs: build-base
