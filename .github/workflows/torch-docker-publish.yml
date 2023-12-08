@@ -4,7 +4,7 @@ on: workflow_call
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: haydnj/torch:latest
+  IMAGE_NAME: haydnj/torch
 
 jobs:
   build:
@@ -49,8 +49,6 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.IMAGE_NAME }}:latest
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Sign the published Docker image
         if: ${{ github.event_name != 'pull_request' }}
