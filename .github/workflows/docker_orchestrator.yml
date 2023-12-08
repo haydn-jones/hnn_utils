@@ -1,0 +1,15 @@
+name: Build all docker images and publish to Docker Hub
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-base:
+    uses: haydn-jones/hnn_utils/.github/workflows/ml_base-docker-publish.yml
+  build-jax:
+    uses: haydn-jones/hnn_utils/.github/workflows/jax-docker-publish.yml
+  build-torch:
+    uses: haydn-jones/hnn_utils/.github/workflows/torch-docker-publish.yml
