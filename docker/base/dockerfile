@@ -1,0 +1,48 @@
+FROM nvidia/cuda:11.8.0-base-ubuntu22.04
+
+RUN rm -f /etc/apt/sources.list.d/*.list
+
+RUN apt-get update
+RUN apt-get install -y curl ca-certificates sudo git bzip2 libx11-6 zsh wget vim
+RUN rm -rf /var/lib/apt/lists/*
+
+RUN mkdir /workspace
+WORKDIR /workspace
+
+# User
+RUN adduser --disabled-password --gecos '' --shell /bin/zsh user
+RUN chown -R user:user /workspace
+RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-user
+USER user
+
+# All users can use /home/user as their home directory.
+ENV HOME=/home/user
+RUN mkdir $HOME/.cache $HOME/.config
+RUN chmod -R 777 $HOME
+
+# GRML zsh
+RUN wget -O $HOME/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+
+# Download and install Micromamba.
+RUN curl -sL https://micro.mamba.pm/api/micromamba/linux-64/latest \
+    | sudo tar -xvj -C /usr/local bin/micromamba
+
+ENV MAMBA_EXE=/usr/local/bin/micromamba \
+    MAMBA_ROOT_PREFIX=/home/user/micromamba \
+    CONDA_PREFIX=/home/user/micromamba \
+    PATH=/home/user/micromamba/bin:$PATH
+
+# Enable conda-forge
+RUN sudo micromamba config append --system channels conda-forge
+
+RUN micromamba create -qy -n base python=3.11 \
+    && micromamba shell init --shell=zsh --prefix="$MAMBA_ROOT_PREFIX"
+
+RUN micromamba clean -qya
+RUN pip cache purge
+RUN sudo rm -rf /workspace/*
+
+RUN git config --global --add safe.directory /workspace
+
+# Because I can't figure out how to get zsh to source .zshrc on startup lol
+ENTRYPOINT [ "/bin/zsh" ]
