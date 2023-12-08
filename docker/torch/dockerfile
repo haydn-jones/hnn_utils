@@ -1,0 +1,14 @@
+FROM haydnj/ml_base
+
+RUN micromamba install pytorch torchvision torchaudio pytorch-cuda=11.8 -qy -c pytorch -c nvidia
+
+RUN micromamba install -qy matplotlib pandas numpy rdkit tqdm joblib rich rdkit
+
+# Python packages
+RUN pip install hnn_utils
+
+RUN pip install lightning wandb fire
+RUN pip install transformers tokenizers datasets selfies guacamol fcd
+
+RUN micromamba clean -qya
+RUN pip cache purge
