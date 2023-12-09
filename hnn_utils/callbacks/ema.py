@@ -5,6 +5,7 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional
 
 import lightning as L
+import lightning.pytorch as pl
 import torch
 from lightning import LightningModule, Trainer
 from lightning.pytorch.strategies import DDPStrategy, DeepSpeedStrategy, FSDPStrategy
@@ -78,15 +79,7 @@ class EMACallback(L.Callback):
         # to the device yet or not
         self.on_device = False
 
-    def on_train_batch_end(
-        self,
-        trainer: Trainer,
-        pl_module: LightningModule,
-        outputs,
-        batch,
-        batch_idx,
-        unused=0,
-    ):
+    def on_after_backward(self, trainer: Trainer, pl_module: LightningModule) -> None:
         if not self.should_update(trainer):
             return
 
