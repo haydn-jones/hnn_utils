@@ -9,19 +9,13 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN mkdir /workspace
 WORKDIR /workspace
 
-# User
-RUN adduser --disabled-password --gecos '' --shell /bin/zsh user
-RUN chown -R user:user /workspace
-RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-user
-USER user
-
 # All users can use /home/user as their home directory.
 ENV HOME=/home/user
-RUN mkdir $HOME/.cache $HOME/.config
+RUN mkdir -p $HOME/.cache $HOME/.config
 RUN chmod -R 777 $HOME
 
-# GRML zsh
-RUN wget -O $HOME/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+RUN chsh -s /bin/zsh
+RUN wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 
 # Download and install Micromamba.
 RUN curl -sL https://micro.mamba.pm/api/micromamba/linux-64/latest \
