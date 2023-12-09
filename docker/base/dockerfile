@@ -9,22 +9,28 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN mkdir /workspace
 WORKDIR /workspace
 
-# All users can use /home/user as their home directory.
-ENV HOME=/home/user
-RUN mkdir -p $HOME/.cache $HOME/.config
+# haydnj
+RUN adduser --disabled-password --gecos '' --shell /bin/zsh haydnj
+RUN chown -R haydnj:haydnj /workspace
+RUN echo "haydnj ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-haydnj
+USER haydnj
+
+# All haydnjs can use /home/haydnj as their home directory.
+ENV HOME=/home/haydnj
+RUN mkdir $HOME/.cache $HOME/.config
 RUN chmod -R 777 $HOME
 
-RUN chsh -s /bin/zsh
-RUN wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+# GRML zsh
+RUN wget -O $HOME/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 
 # Download and install Micromamba.
 RUN curl -sL https://micro.mamba.pm/api/micromamba/linux-64/latest \
     | sudo tar -xvj -C /usr/local bin/micromamba
 
 ENV MAMBA_EXE=/usr/local/bin/micromamba \
-    MAMBA_ROOT_PREFIX=/home/user/micromamba \
-    CONDA_PREFIX=/home/user/micromamba \
-    PATH=/home/user/micromamba/bin:$PATH
+    MAMBA_ROOT_PREFIX=/home/haydnj/micromamba \
+    CONDA_PREFIX=/home/haydnj/micromamba \
+    PATH=/home/haydnj/micromamba/bin:$PATH
 
 # Enable conda-forge
 RUN sudo micromamba config append --system channels conda-forge
@@ -37,6 +43,8 @@ RUN pip cache purge
 RUN sudo rm -rf /workspace/*
 
 RUN git config --global --add safe.directory /workspace
+
+ENV USER=haydnj
 
 # Because I can't figure out how to get zsh to source .zshrc on startup lol
 ENTRYPOINT [ "/bin/zsh" ]
