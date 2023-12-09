@@ -10,6 +10,7 @@ import torch
 from lightning import LightningModule, Trainer
 from lightning.pytorch.strategies import DDPStrategy, DeepSpeedStrategy, FSDPStrategy
 from lightning.pytorch.utilities.exceptions import MisconfigurationException
+from torch.optim import Optimizer
 
 
 class UpdateAfter(Enum):
@@ -79,7 +80,9 @@ class EMACallback(L.Callback):
         # to the device yet or not
         self.on_device = False
 
-    def on_after_backward(self, trainer: Trainer, pl_module: LightningModule) -> None:
+    def on_before_optimizer_step(
+        self, trainer: Trainer, pl_module: LightningModule, optimizer: Optimizer
+    ) -> None:
         if not self.should_update(trainer):
             return
 
