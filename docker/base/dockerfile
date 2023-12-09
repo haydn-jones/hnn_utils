@@ -1,27 +1,24 @@
 FROM nvidia/cuda:11.8.0-base-ubuntu22.04
 
-RUN rm -f /etc/apt/sources.list.d/*.list
-
-RUN apt-get update
-RUN apt-get install -y curl ca-certificates sudo git bzip2 libx11-6 zsh wget vim
-RUN rm -rf /var/lib/apt/lists/*
+RUN apt update
+RUN apt upgrade -y
+RUN apt install -y curl ca-certificates sudo git bzip2 libx11-6 zsh wget vim gcc-11 g++-11 make cmake ninja-build
 
 RUN mkdir /workspace
 WORKDIR /workspace
 
-# haydnj
 RUN adduser --uid 67761 --disabled-password --gecos '' --shell  /bin/zsh haydnj
 RUN chown -R haydnj:haydnj /workspace
 RUN echo "haydnj ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-haydnj
 USER haydnj
 
-# All haydnjs can use /home/haydnj as their home directory.
 ENV HOME=/home/haydnj
 RUN mkdir $HOME/.cache $HOME/.config
 RUN chmod -R 777 $HOME
 
 # GRML zsh
 RUN wget -O $HOME/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+RUN sudo cp $HOME/.zshrc /etc/zsh/zshrc 
 
 # Download and install Micromamba.
 RUN curl -sL https://micro.mamba.pm/api/micromamba/linux-64/latest \
