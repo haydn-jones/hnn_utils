@@ -10,7 +10,7 @@ RUN mkdir /workspace
 WORKDIR /workspace
 
 # haydnj
-RUN adduser --disabled-password --gecos '' --shell /bin/zsh haydnj
+RUN adduser --uid 67761 --disabled-password --gecos '' --shell  /bin/zsh haydnj
 RUN chown -R haydnj:haydnj /workspace
 RUN echo "haydnj ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-haydnj
 USER haydnj
