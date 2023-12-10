@@ -1,7 +1,8 @@
 FROM haydnj/ml_base
 
-RUN pip install "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+# Install torch then jax because torch messes with numpy
 RUN micromamba install pytorch torchvision torchaudio cpuonly -qy -c pytorch
+RUN pip install "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
 RUN micromamba install -qy matplotlib pandas numpy rdkit tqdm joblib rich rdkit
 
