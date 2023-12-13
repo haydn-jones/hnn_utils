@@ -18,7 +18,6 @@ RUN chmod -R 777 $HOME
 
 # GRML zsh
 RUN wget -O $HOME/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
-RUN sudo cp $HOME/.zshrc /etc/zsh/zshrc 
 
 # Download and install Micromamba.
 RUN curl -sL https://micro.mamba.pm/api/micromamba/linux-64/latest \
@@ -42,6 +41,8 @@ RUN sudo rm -rf /workspace/*
 RUN git config --global --add safe.directory /workspace
 
 ENV USER=haydnj
+ENV SHELL=/bin/zsh
+RUN sudo cp $HOME/.zshrc /etc/zsh/zshrc 
 
 # Because I can't figure out how to get zsh to source .zshrc on startup lol
 ENTRYPOINT [ "/bin/zsh" ]
