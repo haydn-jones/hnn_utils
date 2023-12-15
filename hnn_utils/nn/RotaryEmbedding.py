@@ -1,63 +1,47 @@
 # Much of this is based on lucidrains implementation of rotary embeddings
 # https://github.com/lucidrains/rotary-embedding-torch
-
-# Removed many of the configurable options to simplify the code
-# and allow it to work with torch.compile
-# Uses xpos
+# and https://github.com/microsoft/torchscale/blob/f69a87f4911d4bbdf5b851fb41400423bad6d36f/torchscale/component/xpos_relative_position.py#L38
 
 import torch
 from torch import nn
 
 
-class RotaryEmbedding(nn.Module):
-    def __init__(
-        self,
-        dim,
-        theta=10000,
-        scale_base=512,
-    ):
+class XPOS(nn.Module):
+    def __init__(self, head_dim: int, scale_base: int = 512):
         super().__init__()
 
-        freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
-        self.register_buffer("freqs", freqs.unsqueeze(0))
-
-        scale = (torch.arange(0, dim, 2) + 0.4 * dim) / (1.4 * dim)
-        self.register_buffer("scale", scale)
-
+        self.head_dim = head_dim
         self.scale_base = scale_base
 
-    def forward(self, q, k):
-        seq_len = q.shape[-2]
+        self.register_buffer(
+            "scale", (torch.arange(0, head_dim, 2) + 0.4 * head_dim) / (1.4 * head_dim)
+        )
+        inv_freq = 1.0 / (10000 ** (torch.arange(0, head_dim, 2).float() / head_dim))
+        self.register_buffer("inv_freq", inv_freq.unsqueeze(0))
 
-        seq = torch.arange(seq_len, device=q.device, dtype=q.dtype)
+    def forward(self, q: torch.Tensor, k: torch.Tensor):
+        SL = q.shape[-2]
 
-        freqs = seq.unsqueeze(1) @ self.freqs.type_as(q)
-        freqs = torch.repeat_interleave(freqs, 2, dim=-1)
+        seq = torch.arange(SL, device=q.device, dtype=q.dtype).unsqueeze(-1)
 
-        power = (seq - seq_len // 2) / self.scale_base
-        scale = self.scale.pow(power.unsqueeze(-1)).type_as(q)
+        power = (seq - SL // 2) / self.scale_base
+        scale = self.scale.pow(power).type_as(q)
 
-        scale = torch.cat((scale, scale), dim=-1)
+        freqs = seq @ self.inv_freq
+        sin = freqs.sin()
+        cos = freqs.cos()
 
-        fc = freqs.cos()
-        fs = freqs.sin()
+        q = self.apply_rotary_pos_emb(q, sin, cos, scale)
+        k = self.apply_rotary_pos_emb(k, sin, cos, (1.0 / scale).type_as(q))
+        return q, k
 
-        rotated_q = self.apply_rotary_emb(fc, fs, q, scale=scale)
-        # Idk why but reciprocal will sometimes promote f16 to f32
-        rotated_k = self.apply_rotary_emb(fc, fs, k, scale=scale.reciprocal().type_as(q))
+    def apply_rotary_pos_emb(self, x, sin, cos, scale):
+        sin = torch.repeat_interleave(sin * scale, 2, dim=-1)
+        cos = torch.repeat_interleave(cos * scale, 2, dim=-1)
+        return (x * cos) + (self.rotate_every_two(x) * sin)
 
-        return rotated_q, rotated_k
-
-    def apply_rotary_emb(self, freqs_cos, freqs_sin, t, scale):
-        t = (t * freqs_cos * scale) + (self.rotate_half(t) * freqs_sin * scale)
-        return t
-
-    def rotate_half(self, x):
-        d = x.size(-1) // 2
-        x = x.view(*x.shape[:-1], d, 2)
-
-        x1, x2 = x.unbind(dim=-1)
-
+    def rotate_every_two(self, x):
+        x1 = x[..., ::2]
+        x2 = x[..., 1::2]
         x = torch.stack((-x2, x1), dim=-1)
-        x = x.view(*x.shape[:-2], -1)
-        return x
+        return x.flatten(-2)

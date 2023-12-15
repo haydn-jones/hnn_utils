@@ -4,7 +4,7 @@ FROM haydnj/ml_base
 RUN micromamba install pytorch torchvision torchaudio cpuonly -qy -c pytorch
 RUN pip install "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
-RUN micromamba install -qy matplotlib pandas numpy rdkit tqdm joblib rich rdkit
+RUN micromamba install -qy matplotlib pandas rdkit tqdm joblib rich rdkit
 
 RUN pip install orbax optax jaxtyping
 RUN pip install git+https://github.com/google/flax.git
