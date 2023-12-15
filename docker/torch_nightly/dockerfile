@@ -1,0 +1,14 @@
+FROM haydnj/ml_base
+
+RUN pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu121
+
+RUN micromamba install -qy matplotlib pandas numpy rdkit tqdm joblib rich rdkit
+
+# Python packages
+RUN pip install hnn_utils
+
+RUN pip install lightning wandb fire hnn-utils
+RUN pip install transformers tokenizers datasets selfies guacamol fcd
+
+RUN micromamba clean -qya
+RUN pip cache purge
