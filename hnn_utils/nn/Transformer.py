@@ -271,6 +271,7 @@ class MultiheadAttention(nn.Module):
         v = v.view(N, -1, self.num_heads, self.head_dim).swapaxes(1, 2)
 
         mask = combine_masks(attn_mask, padding_mask, self.num_heads, query.dtype)
+
         if hasattr(self, "alibi"):
             bias = self.alibi(q, k)
             mask = mask + bias if mask is not None else bias
@@ -333,7 +334,7 @@ def combine_masks(
         if x is None:
             return None
         if x.dtype == torch.bool:
-            return torch.where(x, -torch.inf, 0.0)
+            return torch.where(x, -torch.inf, 0.0).type(dtype)
         return x
 
     mask = floatify(attn_mask)
