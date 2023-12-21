@@ -35,10 +35,21 @@ def gaussian_kl(
     return 0.5 * (var_ratio + t1 - 1.0 - var_ratio.log())
 
 
+def gaussian_kl_standard_normal(
+    mup: Tensor,
+    sigmap: Tensor,
+) -> Tensor:
+    """
+    KL(p || N(0, 1))
+    """
+    var = sigmap.square()
+    return 0.5 * (var + mup.square() - 1.0 - var.log())
+
+
 def cross_entropy(
     logits: Tensor,
     labels: Tensor,
-    ignore: Optional[Tensor] = None,
+    ignore_index: int = -100,
 ) -> Tensor:
     """
     Cross entropy loss, with optional ignore mask.
@@ -55,11 +66,14 @@ def cross_entropy(
     log_normalizers = logits.logsumexp(dim=-1)
     ce = log_normalizers - label_logits
 
-    if ignore is not None:
-        ce = torch.where(
-            ignore,
-            0.0,
-            ce,
-        )
-
+    ce = torch.where(labels == ignore_index, 0.0, ce)
     return ce
+
+
+def causal_mask(embed: Tensor) -> Tensor:
+    """
+    Creates a causal mask for self-attention.
+    """
+    mask = torch.full((embed.shape[1], embed.shape[1]), -torch.inf, device=embed.device, dtype=embed.dtype)
+    mask = torch.triu(mask, diagonal=1)
+    return mask

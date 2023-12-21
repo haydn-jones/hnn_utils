@@ -1,10 +1,7 @@
 name: Build all docker images and publish to Docker Hub
 
 on:
-  push:
-    branches:
-      - main
-      - master
+  workflow_dispatch:
 
 permissions:
   contents: read

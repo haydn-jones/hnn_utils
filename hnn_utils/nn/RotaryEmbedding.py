@@ -13,9 +13,7 @@ class XPOS(nn.Module):
         self.head_dim = head_dim
         self.scale_base = scale_base
 
-        self.register_buffer(
-            "scale", (torch.arange(0, head_dim, 2) + 0.4 * head_dim) / (1.4 * head_dim)
-        )
+        self.register_buffer("scale", (torch.arange(0, head_dim, 2) + 0.4 * head_dim) / (1.4 * head_dim))
         inv_freq = 1.0 / (10000 ** (torch.arange(0, head_dim, 2).float() / head_dim))
         self.register_buffer("inv_freq", inv_freq.unsqueeze(0))
 
