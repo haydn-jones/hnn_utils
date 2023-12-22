@@ -27,3 +27,7 @@ jobs:
     uses: haydn-jones/hnn_utils/.github/workflows/torch_nightly-docker-publish.yml@main
     needs: build-base
     secrets: inherit
+
+  build-bayes-lqo:
+    uses: haydn-jones/hnn_utils/.github/workflows/bayes-lqo-docker-publish.yml@main
+    secrets: inherit
