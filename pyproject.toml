@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hnn_utils"
-version = "0.1.27"
+version = "0.1.28"
 description = "Various utilities used throughout my research"
 authors = ["Haydn Jones <haydnjonest@gmail.com>"]
 readme = "README.md"
