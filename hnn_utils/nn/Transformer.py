@@ -197,10 +197,9 @@ class TransformerDecoderLayer(nn.Module):
     ) -> Tensor:
         x = tgt
 
-        # x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal)
-        # x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_padding_mask, memory_is_causal)
-        x = self._mha_block(self.norm2(x), memory, memory_mask, memory_padding_mask, memory_is_causal)
-        # x = x + self.ff_block(self.norm3(x))
+        x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal)
+        x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_padding_mask, memory_is_causal)
+        x = x + self.ff_block(self.norm3(x))
         return x
 
     def _sa_block(
