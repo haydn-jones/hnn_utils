@@ -10,7 +10,7 @@ from hnn_utils.nn.ALiBi import ALiBi
 
 class TransformerEncoder(nn.Module):
     """
-    PyTorch API compatible (more or less) encoder for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) encoder for Transformers, with support for ALiBi.
 
     Args:
         encoder_layers: encoder layers to use
@@ -38,7 +38,7 @@ class TransformerEncoder(nn.Module):
 
 class TransformerDecoder(nn.Module):
     """
-    PyTorch API compatible (more or less) decoder for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) decoder for Transformers, with support for ALiBi.
 
     Args:
         decoder_layers: decoder layers to use
@@ -82,9 +82,10 @@ class TransformerDecoder(nn.Module):
 
 class TransformerEncoderLayer(nn.Module):
     """
-    PyTorch API compatible (more or less) encoder layer for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) encoder layer for Transformers, with support for ALiBi.
 
     Note: Some of the defaults do not match the PyTorch implementation as they are used in my own experiments.
+    Note: RMSNorm is supposed to increase throughput, but it doesn't seem to be the case for small models?
 
     Args:
         d_model: dimension of the embeddings
@@ -93,7 +94,7 @@ class TransformerEncoderLayer(nn.Module):
         dropout: dropout value
         activation: activation function in feedforward (nn.Module)
         norm_first: whether to apply layer norm before or after blocks
-        self_rotary: use rotary embeddings in self-attention
+        self_rotary: use ALiBi in self-attention
     """
 
     def __init__(
@@ -103,15 +104,20 @@ class TransformerEncoderLayer(nn.Module):
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
         self_alibi: bool = True,
+        use_rms_norm: bool = True,
+        use_swiglu: bool = True,
     ) -> None:
         super().__init__()
 
+        norm_cls = {True: RMSNorm, False: LayerNormWrapper}[use_rms_norm]
+        ffn_cls = {True: FFNSwiGLU, False: FFNN}[use_swiglu]
+
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
 
-        self.ff_block = FFNSwiGLU(d_model, dim_feedforward)
+        self.ff_block = ffn_cls(d_model, dim_feedforward)
 
-        self.norm1 = RMSNorm(d_model)
-        self.norm2 = RMSNorm(d_model)
+        self.norm1 = norm_cls(d_model)
+        self.norm2 = norm_cls(d_model)
 
         self.dropout = nn.Dropout(dropout)
 
@@ -143,10 +149,10 @@ class TransformerEncoderLayer(nn.Module):
 
 class TransformerDecoderLayer(nn.Module):
     """
-    PyTorch API compatible (more or less) decoder layer for Transformers, with support for rotary embeddings.
+    PyTorch API compatible (more or less) decoder layer for Transformers, with support for ALiBi.
 
-    Note: Some of the defaults do not match the PyTorch implementation, or may be 'strange' (i.e. memory_rotary=False)
-    as they are used in my own experiments.
+    Note: Some of the defaults do not match the PyTorch implementation.
+    Note: RMSNorm is supposed to increase throughput, but it doesn't seem to be the case for small models?
 
     Args:
         d_model: dimension of the embeddings
@@ -155,8 +161,8 @@ class TransformerDecoderLayer(nn.Module):
         dropout: dropout value
         activation: activation function in feedforward (nn.Module)
         norm_first: whether to apply layer norm before or after blocks
-        self_rotary: use rotary embeddings in self-attention
-        memory_rotary: use rotary embeddings in cross-attention
+        self_alibi: use ALiBi in self-attention
+        cross_alibi: use ALiBi in cross-attention
     """
 
     def __init__(
@@ -167,17 +173,22 @@ class TransformerDecoderLayer(nn.Module):
         dropout: float = 0.1,
         self_alibi: bool = False,
         cross_alibi: bool = False,
+        use_rms_norm: bool = True,
+        use_swiglu: bool = True,
     ):
         super().__init__()
+
+        norm_cls = {True: RMSNorm, False: LayerNormWrapper}[use_rms_norm]
+        ffn_cls = {True: FFNSwiGLU, False: FFNN}[use_swiglu]
 
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
         self.cross_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=cross_alibi)
 
-        self.ff_block = FFNSwiGLU(d_model, dim_feedforward)
+        self.ff_block = ffn_cls(d_model, dim_feedforward)
 
-        self.norm1 = RMSNorm(d_model)
-        self.norm2 = RMSNorm(d_model)
-        self.norm3 = RMSNorm(d_model)
+        self.norm1 = norm_cls(d_model)
+        self.norm2 = norm_cls(d_model)
+        self.norm3 = norm_cls(d_model)
 
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
@@ -300,6 +311,20 @@ class RMSNorm(nn.Module):
         return x * self.weight.type_as(x) * rms.type_as(x)
 
 
+class LayerNormWrapper(nn.Module):
+    """
+    Wraps nn.LayerNorm as it doesn't really support mixed precision.
+    """
+
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+
+        self.ln = nn.LayerNorm(dim, eps=eps)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.ln(x).type_as(x)
+
+
 class FFNSwiGLU(nn.Module):
     """
     GLU Variants Improve Transformer
@@ -316,6 +341,20 @@ class FFNSwiGLU(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         x = F.silu(self.w(x)) * self.v(x)
         return self.w2(x)
+
+
+class FFNN(nn.Module):
+    def __init__(self, dim, dim_feedforward):
+        super().__init__()
+
+        self.block = nn.Sequential(
+            nn.Linear(dim, dim_feedforward),
+            nn.SiLU(),
+            nn.Linear(dim_feedforward, dim),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.block(x)
 
 
 def combine_masks(
