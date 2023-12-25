@@ -1,10 +1,8 @@
-from typing import Optional
-
 import torch
 from torch import Tensor
 
 
-def exp_lin(p: Tensor, min_sigma: float = 0.0, max_sigma: float = 1.0) -> Tensor:
+def exp_lin(p, min_sigma: float = 0.0, max_sigma: float = 1.0):
     """
     More stable parameterization of standard deviation, constrained to be in [min_sigma, max_sigma]
     See https://arxiv.org/abs/2106.13739 eqn. 18 for details
@@ -14,10 +12,11 @@ def exp_lin(p: Tensor, min_sigma: float = 0.0, max_sigma: float = 1.0) -> Tensor
 
     sigma = torch.where(
         p <= 0,
-        0.5 * pneg,
-        0.5 * (2.0 - pplus),
+        pneg,
+        (2.0 - pplus),
     )
-    sigma = sigma * (max_sigma - min_sigma) + min_sigma
+
+    sigma = 0.5 * sigma * (max_sigma - min_sigma) + min_sigma
     return sigma.type_as(p)
 
 
@@ -30,9 +29,12 @@ def gaussian_kl(
     """
     KL divergence between two diagonal Gaussians KL(p || q)
     """
-    var_ratio = (sigmap / sigmaq).square()
-    t1 = ((mup - muq) / sigmaq).square()
-    return 0.5 * (var_ratio + t1 - 1.0 - var_ratio.log())
+    return (
+        0.5 * (sigmap.square() + (mup - muq).square()) * sigmaq.reciprocal().square()
+        + sigmaq.log()
+        - sigmap.log()
+        - 0.5
+    )
 
 
 def gaussian_kl_standard_normal(
