@@ -94,7 +94,8 @@ class TransformerEncoderLayer(nn.Module):
         dropout: dropout value
         activation: activation function in feedforward (nn.Module)
         norm_first: whether to apply layer norm before or after blocks
-        self_rotary: use ALiBi in self-attention
+        self_alibi: use ALiBi in self-attention
+        norm_first: whether to apply layer norm before or after blocks
     """
 
     def __init__(
@@ -106,6 +107,7 @@ class TransformerEncoderLayer(nn.Module):
         self_alibi: bool = True,
         use_rms_norm: bool = True,
         use_swiglu: bool = True,
+        norm_first: bool = True,
     ) -> None:
         super().__init__()
 
@@ -121,6 +123,8 @@ class TransformerEncoderLayer(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
+        self.norm_first = norm_first
+
         self.apply(_reset_parameters)
 
     def forward(
@@ -131,8 +135,12 @@ class TransformerEncoderLayer(nn.Module):
         is_causal: bool = False,
     ) -> Tensor:
         x = src
-        x = x + self._sa_block(self.norm1(x), src_mask, src_padding_mask, is_causal=is_causal)
-        x = x + self.ff_block(self.norm2(x))
+        if self.norm_first:
+            x = x + self._sa_block(self.norm1(x), src_mask, src_padding_mask, is_causal=is_causal)
+            x = x + self.ff_block(self.norm2(x))
+        else:
+            x = self.norm1(x + self._sa_block(x, src_mask, src_padding_mask, is_causal=is_causal))
+            x = self.norm2(x + self.ff_block(x))
 
         return x
 
@@ -163,6 +171,7 @@ class TransformerDecoderLayer(nn.Module):
         norm_first: whether to apply layer norm before or after blocks
         self_alibi: use ALiBi in self-attention
         cross_alibi: use ALiBi in cross-attention
+        norm_first: whether to apply layer norm before or after blocks
     """
 
     def __init__(
@@ -175,6 +184,7 @@ class TransformerDecoderLayer(nn.Module):
         cross_alibi: bool = False,
         use_rms_norm: bool = True,
         use_swiglu: bool = True,
+        norm_first: bool = True,
     ):
         super().__init__()
 
@@ -193,6 +203,8 @@ class TransformerDecoderLayer(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
+        self.norm_first = norm_first
+
         self.apply(_reset_parameters)
 
     def forward(
@@ -207,10 +219,14 @@ class TransformerDecoderLayer(nn.Module):
         memory_is_causal: bool = False,
     ) -> Tensor:
         x = tgt
-
-        x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal)
-        x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_padding_mask, memory_is_causal)
-        x = x + self.ff_block(self.norm3(x))
+        if self.norm_first:
+            x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal)
+            x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_padding_mask, memory_is_causal)
+            x = x + self.ff_block(self.norm3(x))
+        else:
+            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal))
+            x = self.norm2(x + self._mha_block(x, memory, memory_mask, memory_padding_mask, memory_is_causal))
+            x = self.norm3(x + self.ff_block(x))
         return x
 
     def _sa_block(
