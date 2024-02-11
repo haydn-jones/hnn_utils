@@ -2,56 +2,39 @@ FROM nvidia/cuda:12.3.1-runtime-ubuntu22.04
 
 RUN apt update
 RUN apt upgrade -y
-RUN apt install -y curl ca-certificates sudo git bzip2 libx11-6 zsh wget vim gcc-12 g++-12 make cmake ninja-build clang-14
+RUN apt update
+RUN apt install -y curl ca-certificates git zsh wget vim gcc-12 g++-12 make cmake ninja-build clang-14
 
 # Use update alternatives to set gcc-12 and g++-12 as default
-RUN sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 512
-RUN sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 512
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 512
+RUN update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 512
 
 RUN mkdir /workspace
 WORKDIR /workspace
 
-RUN adduser --uid 67761 --disabled-password --gecos '' --shell  /bin/zsh haydnj
-RUN chown -R haydnj:haydnj /workspace
-RUN echo "haydnj ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-haydnj
-USER haydnj
+# Zsh
+RUN wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+RUN chsh -s /bin/zsh
 
-ENV HOME=/home/haydnj
-RUN mkdir $HOME/.cache $HOME/.config
-RUN chmod -R 777 $HOME
+# Install miniconda
+RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
+    chmod +x miniconda.sh && \
+    ./miniconda.sh -b -p /opt/conda && \
+    rm miniconda.sh
 
-# GRML zsh
-RUN wget -O $HOME/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+ENV PATH="/opt/conda/bin:${PATH}"
 
-# Download and install Micromamba.
-RUN curl -sL https://micro.mamba.pm/api/micromamba/linux-64/latest \
-    | sudo tar -xvj -C /usr/local bin/micromamba
-
-ENV MAMBA_EXE=/usr/local/bin/micromamba \
-    MAMBA_ROOT_PREFIX=/home/haydnj/micromamba \
-    CONDA_PREFIX=/home/haydnj/micromamba \
-    PATH=/home/haydnj/micromamba/bin:$PATH
-
-# Enable conda-forge
-RUN sudo micromamba config append --system channels conda-forge
-
-# Base environment
-RUN micromamba create -qy -n base python=3.11 \
-    && micromamba shell init --shell=zsh --prefix="$MAMBA_ROOT_PREFIX"
-
-# If you mount a git repo to /workspace git will complain without this
+# Misc
+# If you mount a git repo to /workspace, git will complain without this
 RUN git config --global --add safe.directory /workspace
-
 ENV USER=haydnj
-ENV SHELL=/bin/zsh
-RUN sudo cp $HOME/.zshrc /etc/zsh/zshrc 
 
 # Clean up
-RUN micromamba clean -qya
+RUN mamba clean -qya
 RUN pip cache purge
-RUN sudo rm -rf /workspace/*
-RUN sudo apt autoremove -y
-RUN sudo apt autoclean -y
+RUN rm -rf /workspace/*
+RUN apt autoremove -y
+RUN apt autoclean -y
 
-# Because I can't figure out how to get zsh to source .zshrc on startup lol
+
 ENTRYPOINT [ "/bin/zsh" ]
