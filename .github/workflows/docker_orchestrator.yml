@@ -22,8 +22,3 @@ jobs:
     uses: haydn-jones/hnn_utils/.github/workflows/torch-docker-publish.yml@main
     needs: build-base
     secrets: inherit
-
-  build-torch-nightly:
-    uses: haydn-jones/hnn_utils/.github/workflows/torch_nightly-docker-publish.yml@main
-    needs: build-base
-    secrets: inherit
