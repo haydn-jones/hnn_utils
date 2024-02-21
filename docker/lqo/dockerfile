@@ -1,0 +1,22 @@
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+
+RUN apt update
+RUN apt install git build-essential ninja-build zsh wget -y
+
+# Install Python3 and python-is-python3
+RUN apt install python3 python3-pip python-is-python3 -y
+
+# Torch
+RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Oracle requirements
+RUN pip install networkx sqlglot loguru matplotlib peewee psycopg2-binary pydot hypothesis localstack boto3 "psycopg[binary]" seaborn bokeh awscli-local
+
+# Lolbo reqs
+RUN pip install botorch gpytorch wandb numpy tqdm lightning scipy fire
+
+# User stuff
+WORKDIR /workspace
+ENV USER=haydnj
+
+RUN git config --global --add safe.directory /workspace
