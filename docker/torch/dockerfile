@@ -6,7 +6,7 @@ RUN mamba install -qy matplotlib pandas numpy rdkit tqdm joblib rich rdkit
 # Python packages
 RUN pip install hnn_utils
 
-RUN pip install lightning wandb fire hnn-utils accelerate lion-pytorch einops
+RUN pip install botorch gpytorch scipy lightning wandb fire hnn-utils einops
 RUN pip install transformers tokenizers datasets selfies guacamol fcd
 
 RUN mamba clean -qya
