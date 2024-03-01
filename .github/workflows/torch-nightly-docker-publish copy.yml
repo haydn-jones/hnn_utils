@@ -1,12 +1,12 @@
-name: Build JAX Base Image
+name: Build Torch nightly image
 
 on: workflow_call
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: haydnj/jax
-  TAG: latest
-  BDIR: ./docker/jax
+  IMAGE_NAME: haydnj/torch
+  TAG: nightly
+  BDIR: ./docker/torch_nightly
 
 jobs:
   build:
@@ -62,4 +62,4 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+          run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
