@@ -23,7 +23,9 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
-          sudo docker system prune -a
+          sudo docker image prune --all --force > /dev/null
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/lib/android
 
       - name: Checkout repository
         uses: actions/checkout@v3
