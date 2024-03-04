@@ -24,8 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-      id-token: write
+      packages: read
+      id-token: read
     steps:
       - name: Maximize build space
         run: |
