@@ -1,12 +1,28 @@
-name: Build Torch nightly image
+name: Docker Build Template
 
-on: workflow_call
-
-env:
-  REGISTRY: docker.io
-  IMAGE_NAME: haydnj/torch
-  TAG: nightly
-  BDIR: ./docker/torch_nightly
+on:
+  workflow_call:
+    inputs:
+      registry:
+        required: true
+        type: string
+      image_name:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      build_directory:
+        required: true
+        type: string
+      username:
+        required: true
+        type: string
+      docker_token:
+        required: true
+        type: string
+    secrets:
+      inherit: true
 
 jobs:
   build:
@@ -15,7 +31,6 @@ jobs:
       contents: read
       packages: write
       id-token: write
-
     steps:
       - name: Maximize build space
         run: |
@@ -23,9 +38,9 @@ jobs:
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
-          sudo docker image prune --all --force > /dev/null
           sudo rm -rf /opt/hostedtoolcache/CodeQL
           sudo rm -rf /usr/local/lib/android
+          sudo docker image prune --all --force > /dev/null
 
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -39,27 +54,27 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
 
-      - name: Log into registry ${{ env.REGISTRY }}
+      - name: Log into registry ${{ inputs.registry }}
         if: github.event_name != 'pull_request'
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ inputs.registry }}
           username: haydnj
-          password: ${{ secrets.DOCKER_TOKEN }}
+          password: ${{ inputs.docker_token }}
 
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ inputs.registry }}/${{ inputs.image_name }}
 
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
-          context: ${{ env.BDIR }}
+          context: ${{ inputs.build_directory }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+          tags: ${{ inputs.image_name }}:${{ inputs.tag }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Sign the published Docker image
@@ -68,3 +83,4 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
