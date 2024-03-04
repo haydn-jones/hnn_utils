@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-base:
-    uses: ./.github/workflows/docker_build_template.yml@main
+    uses: ./.github/workflows/docker_build_template.yml
     with:
       registry: docker.io
       image_name: haydnj/ml_base
@@ -16,7 +16,7 @@ jobs:
     secrets: inherit
 
   build-jax:
-    uses: ./.github/workflows/docker_build_template.yml@main
+    uses: ./.github/workflows/docker_build_template.yml
     needs: build-base
     with:
       registry: docker.io
@@ -28,7 +28,7 @@ jobs:
     secrets: inherit
 
   build-torch:
-    uses: ./.github/workflows/docker_build_template.yml@main
+    uses: ./.github/workflows/docker_build_template.yml
     needs: build-base
     with:
       registry: docker.io
@@ -40,7 +40,7 @@ jobs:
     secrets: inherit
 
   build-nightly:
-    uses: ./.github/workflows/docker_build_template.yml@main
+    uses: ./.github/workflows/docker_build_template.yml
     needs: build-base
     with:
       registry: docker.io
