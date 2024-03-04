@@ -18,9 +18,6 @@ on:
       username:
         required: true
         type: string
-      docker_token:
-        required: true
-        type: string
     secrets:
       inherit: true
 
@@ -60,7 +57,7 @@ jobs:
         with:
           registry: ${{ inputs.registry }}
           username: haydnj
-          password: ${{ inputs.docker_token }}
+          password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Extract Docker metadata
         id: meta

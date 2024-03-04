@@ -12,7 +12,6 @@ jobs:
       tag: latest
       build_directory: ./docker/base
       username: haydnj
-      docker_token: ${{ secrets.DOCKER_TOKEN }}
     secrets: inherit
 
   build-jax:
@@ -24,7 +23,6 @@ jobs:
       tag: latest
       build_directory: ./docker/jax
       username: haydnj
-      docker_token: ${{ secrets.DOCKER_TOKEN }}
     secrets: inherit
 
   build-torch:
@@ -36,7 +34,6 @@ jobs:
       tag: latest
       build_directory: ./docker/torch
       username: haydnj
-      docker_token: ${{ secrets.DOCKER_TOKEN }}
     secrets: inherit
 
   build-nightly:
@@ -48,5 +45,4 @@ jobs:
       tag: nightly
       build_directory: ./docker/torch_nightly
       username: haydnj
-      docker_token: ${{ secrets.DOCKER_TOKEN }}
     secrets: inherit
