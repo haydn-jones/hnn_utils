@@ -1,37 +1,13 @@
-FROM nvcr.io/nvidia/pytorch:24.02-py3
+FROM haydnj/ml_base:latest
 
-WORKDIR /workspace
+RUN mamba install -qy pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch-nightly -c nvidia
+RUN mamba install -qy matplotlib pandas numpy rdkit tqdm joblib rich rdkit
 
-# Misc
-# If you mount a git repo to /workspace, git will complain without this
-RUN git config --global --add safe.directory /workspace
-ENV USER=haydnj
+# Python packages
+RUN pip install hnn-utils
 
-RUN apt autoremove -y
-RUN apt autoclean -y
+RUN pip install botorch gpytorch scipy lightning wandb fire hnn-utils einops
+RUN pip install transformers tokenizers datasets selfies guacamol fcd
 
-RUN pip install \
-    datasets \
-    einops \
-    fcd \
-    fire \
-    gpytorch \
-    guacamol \
-    hnn-utils \
-    hnn_utils \
-    joblib \
-    lightning \
-    matplotlib \
-    numpy \
-    pandas \
-    rdkit \
-    rdkit \
-    rich \
-    scipy \
-    selfies \
-    tokenizers \
-    tqdm \
-    transformers \
-    wandb
-
-RUN rm -rf /workspace/*
+RUN mamba clean -qya
+RUN pip cache purge

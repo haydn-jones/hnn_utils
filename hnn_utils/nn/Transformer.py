@@ -3,6 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from einops import rearrange
 from torch import Tensor
 
 from hnn_utils.nn.ALiBi import ALiBi
@@ -114,7 +115,7 @@ class TransformerEncoderLayer(nn.Module):
         norm_cls = {True: RMSNorm, False: LayerNormWrapper}[use_rms_norm]
         ffn_cls = {True: FFNSwiGLU, False: FFNN}[use_swiglu]
 
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
+        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)  # fmt: skip
 
         self.ff_block = ffn_cls(d_model, dim_feedforward)
 
@@ -136,10 +137,10 @@ class TransformerEncoderLayer(nn.Module):
     ) -> Tensor:
         x = src
         if self.norm_first:
-            x = x + self._sa_block(self.norm1(x), src_mask, src_padding_mask, is_causal=is_causal)
+            x = x + self._sa_block(self.norm1(x), src_mask, src_padding_mask, is_causal=is_causal)  # fmt: skip
             x = x + self.ff_block(self.norm2(x))
         else:
-            x = self.norm1(x + self._sa_block(x, src_mask, src_padding_mask, is_causal=is_causal))
+            x = self.norm1(x + self._sa_block(x, src_mask, src_padding_mask, is_causal=is_causal))  # fmt: skip
             x = self.norm2(x + self.ff_block(x))
 
         return x
@@ -151,7 +152,7 @@ class TransformerEncoderLayer(nn.Module):
         padding_mask: Optional[Tensor],
         is_causal: bool = False,
     ) -> Tensor:
-        x = self.self_attn(x, x, x, attn_mask=attn_mask, padding_mask=padding_mask, is_causal=is_causal)
+        x = self.self_attn(x, x, x, attn_mask=attn_mask, padding_mask=padding_mask, is_causal=is_causal)  # fmt: skip
         return self.dropout(x)
 
 
@@ -191,8 +192,8 @@ class TransformerDecoderLayer(nn.Module):
         norm_cls = {True: RMSNorm, False: LayerNormWrapper}[use_rms_norm]
         ffn_cls = {True: FFNSwiGLU, False: FFNN}[use_swiglu]
 
-        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
-        self.cross_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=cross_alibi)
+        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)  # fmt: skip
+        self.cross_attn = MultiheadAttention(d_model, nhead, dropout=dropout, use_alibi=cross_alibi)  # fmt: skip
 
         self.ff_block = ffn_cls(d_model, dim_feedforward)
 
@@ -220,12 +221,12 @@ class TransformerDecoderLayer(nn.Module):
     ) -> Tensor:
         x = tgt
         if self.norm_first:
-            x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal)
-            x = x + self._mha_block(self.norm2(x), memory, memory_mask, memory_padding_mask, memory_is_causal)
+            x = x + self._sa_block(self.norm1(x), tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal)  # fmt: skip
+            x = x + self._mha_block(self.norm2(x),memory,memory_mask,memory_padding_mask,memory_is_causal)  # fmt: skip
             x = x + self.ff_block(self.norm3(x))
         else:
-            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal))
-            x = self.norm2(x + self._mha_block(x, memory, memory_mask, memory_padding_mask, memory_is_causal))
+            x = self.norm1(x + self._sa_block(x, tgt_mask, tgt_padding_mask, is_causal=tgt_is_causal))  # fmt: skip
+            x = self.norm2(x + self._mha_block(x, memory, memory_mask, memory_padding_mask, memory_is_causal))  # fmt: skip
             x = self.norm3(x + self.ff_block(x))
         return x
 
@@ -236,7 +237,7 @@ class TransformerDecoderLayer(nn.Module):
         padding_mask: Optional[Tensor],
         is_causal: bool = False,
     ) -> Tensor:
-        x = self.self_attn(x, x, x, attn_mask=attn_mask, padding_mask=padding_mask, is_causal=is_causal)
+        x = self.self_attn(x, x, x, attn_mask=attn_mask, padding_mask=padding_mask, is_causal=is_causal)  # fmt: skip
         return self.dropout1(x)
 
     # multihead attention block
@@ -248,7 +249,7 @@ class TransformerDecoderLayer(nn.Module):
         padding_mask: Optional[Tensor],
         is_causal: bool = False,
     ) -> Tensor:
-        x = self.cross_attn(x, mem, mem, attn_mask=attn_mask, padding_mask=padding_mask, is_causal=is_causal)
+        x = self.cross_attn(x, mem, mem, attn_mask=attn_mask, padding_mask=padding_mask, is_causal=is_causal)  # fmt: skip
         return self.dropout2(x)
 
 
@@ -267,7 +268,9 @@ class MultiheadAttention(nn.Module):
         self.head_dim = embed_dim // heads
         self.dropout = dropout
 
-        assert self.head_dim * heads == embed_dim, "Embedding size needs to be divisible by heads"
+        assert (
+            self.head_dim * heads == embed_dim
+        ), "Embedding size needs to be divisible by heads"
 
         self.q_proj = nn.Linear(self.embed_size, self.embed_size)
         self.k_proj = nn.Linear(self.embed_size, self.embed_size)
@@ -287,15 +290,13 @@ class MultiheadAttention(nn.Module):
         attn_mask: Optional[Tensor] = None,
         is_causal: bool = False,
     ) -> Tensor:
-        N = query.shape[0]
-
         q = self.q_proj(query)
         k = self.k_proj(key)
         v = self.v_proj(value)
 
-        q = q.view(N, -1, self.num_heads, self.head_dim).swapaxes(1, 2)
-        k = k.view(N, -1, self.num_heads, self.head_dim).swapaxes(1, 2)
-        v = v.view(N, -1, self.num_heads, self.head_dim).swapaxes(1, 2)
+        q = rearrange(q, "... n (h d) -> ... h n d", h=self.num_heads)
+        k = rearrange(k, "... n (h d) -> ... h n d", h=self.num_heads)
+        v = rearrange(v, "... n (h d) -> ... h n d", h=self.num_heads)
 
         mask = combine_masks(attn_mask, padding_mask, self.num_heads, query.dtype)
 
@@ -304,9 +305,11 @@ class MultiheadAttention(nn.Module):
             mask = mask + bias if mask is not None else bias
 
         dropout = self.dropout if self.training else 0.0
-        attn = F.scaled_dot_product_attention(q, k, v, mask, is_causal=is_causal, dropout_p=dropout)
+        attn = F.scaled_dot_product_attention(
+            q, k, v, mask, is_causal=is_causal, dropout_p=dropout
+        )
 
-        attn = attn.swapaxes(1, 2).reshape(N, -1, self.embed_size)
+        attn = rearrange(attn, "... h n d -> ... n (h d)")
         return self.out_proj(attn)
 
 
@@ -347,12 +350,20 @@ class FFNSwiGLU(nn.Module):
     https://arxiv.org/abs/2002.05202
     """
 
-    def __init__(self, dim, dim_feedforward):
+    def __init__(
+        self,
+        dim: int,
+        dim_feedforward: int,
+        out_dim: Optional[int] = None,
+        use_bias: bool = False,
+    ):
         super().__init__()
 
-        self.w = nn.Linear(dim, dim_feedforward, bias=False)
-        self.v = nn.Linear(dim, dim_feedforward, bias=False)
-        self.w2 = nn.Linear(dim_feedforward, dim, bias=False)
+        out_dim = out_dim or dim
+
+        self.w = nn.Linear(dim, dim_feedforward, bias=use_bias)
+        self.v = nn.Linear(dim, dim_feedforward, bias=use_bias)
+        self.w2 = nn.Linear(dim_feedforward, out_dim, bias=use_bias)
 
     def forward(self, x: Tensor) -> Tensor:
         x = F.silu(self.w(x)) * self.v(x)
@@ -360,13 +371,21 @@ class FFNSwiGLU(nn.Module):
 
 
 class FFNN(nn.Module):
-    def __init__(self, dim, dim_feedforward):
+    def __init__(
+        self,
+        dim: int,
+        dim_feedforward: int,
+        out_dim: Optional[int] = None,
+        use_bias: bool = True,
+    ):
         super().__init__()
 
+        out_dim = out_dim or dim
+
         self.block = nn.Sequential(
-            nn.Linear(dim, dim_feedforward),
+            nn.Linear(dim, dim_feedforward, bias=use_bias),
             nn.SiLU(),
-            nn.Linear(dim_feedforward, dim),
+            nn.Linear(dim_feedforward, out_dim, bias=use_bias),
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -413,6 +432,6 @@ def causal_mask(embed: Tensor) -> Tensor:
     """
     Creates a causal mask for self-attention.
     """
-    mask = torch.full((embed.shape[1], embed.shape[1]), -torch.inf, device=embed.device, dtype=embed.dtype)
+    mask = torch.full((embed.shape[1], embed.shape[1]), -torch.inf, device=embed.device, dtype=embed.dtype)  # fmt: skip
     mask = torch.triu(mask, diagonal=1)
     return mask
