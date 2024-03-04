@@ -18,8 +18,7 @@ on:
       username:
         required: true
         type: string
-    secrets:
-      inherit: true
+    secrets: inherit
 
 jobs:
   build:
