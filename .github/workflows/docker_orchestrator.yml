@@ -7,42 +7,34 @@ jobs:
   build-base:
     uses: ./.github/workflows/docker_build_template.yml
     with:
-      registry: docker.io
       image_name: haydnj/ml_base
       tag: latest
       build_directory: ./docker/base
-      username: haydnj
     secrets: inherit
 
   build-jax:
     uses: ./.github/workflows/docker_build_template.yml
     needs: build-base
     with:
-      registry: docker.io
       image_name: haydnj/jax
       tag: latest
       build_directory: ./docker/jax
-      username: haydnj
     secrets: inherit
 
   build-torch:
     uses: ./.github/workflows/docker_build_template.yml
     needs: build-base
     with:
-      registry: docker.io
       image_name: haydnj/torch
       tag: latest
       build_directory: ./docker/torch
-      username: haydnj
     secrets: inherit
 
   build-nightly:
     uses: ./.github/workflows/docker_build_template.yml
     needs: build-base
     with:
-      registry: docker.io
       image_name: haydnj/torch
       tag: nightly
       build_directory: ./docker/torch_nightly
-      username: haydnj
     secrets: inherit
