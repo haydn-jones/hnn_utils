@@ -1,0 +1,17 @@
+FROM runpod/base:0.6.2-cuda12.2.0
+
+# Install miniconda
+RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
+    chmod +x miniconda.sh && \
+    ./miniconda.sh -b -p /opt/conda && \
+    rm miniconda.sh
+
+ENV PATH="/opt/conda/bin:${PATH}"
+
+RUN mamba install -qy pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch-nightly -c nvidia
+RUN mamba install -qy matplotlib pandas numpy rdkit tqdm joblib rich rdkit
+
+RUN pip install hnn-utils botorch gpytorch scipy lightning wandb fire hnn-utils einops transformers tokenizers datasets selfies guacamol fcd
+
+RUN mamba clean -qya
+RUN pip cache purge
