@@ -12,22 +12,6 @@ jobs:
       build_directory: ./docker/base
     secrets: inherit
 
-  build-runpod:
-    uses: ./.github/workflows/docker_build_template.yml
-    with:
-      image_name: haydnj/torch
-      tag: runpod
-      build_directory: ./docker/runpod
-    secrets: inherit
-
-  build-runpod-jax:
-    uses: ./.github/workflows/docker_build_template.yml
-    with:
-      image_name: haydnj/jax
-      tag: runpod
-      build_directory: ./docker/runpod_jax
-    secrets: inherit
-
   build-jax:
     uses: ./.github/workflows/docker_build_template.yml
     needs: build-base

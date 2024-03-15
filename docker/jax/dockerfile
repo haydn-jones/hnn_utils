@@ -3,14 +3,37 @@ FROM haydnj/ml_base:latest
 # Install torch then jax because torch messes with numpy
 RUN mamba install pytorch torchvision torchaudio cpuonly -qy -c pytorch
 RUN pip install "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+RUN pip install -U --pre jax -f https://storage.googleapis.com/jax-releases/jax_nightly_releases.html
+RUN pip install -U --pre jaxlib -f https://storage.googleapis.com/jax-releases/jaxlib_nightly_cuda12_releases.html
 
-RUN mamba install -qy matplotlib pandas rdkit tqdm joblib rich rdkit
+RUN pip install \
+    orbax-checkpoint \
+    optax \
+    jaxtyping \
+    flax \
+    distrax
 
-RUN pip install orbax optax jaxtyping
-RUN pip install git+https://github.com/google/flax.git
-
-RUN pip install lightning wandb fire
-RUN pip install tokenizers datasets selfies
+RUN pip install \
+    botorch \
+    datasets \
+    einops \
+    fcd \
+    fire \
+    gpytorch \
+    guacamol \
+    hf_transfer \
+    hnn-utils \
+    ipython \
+    joblib \
+    lightning \
+    matplotlib \
+    pandas \
+    rich \
+    selfies \
+    tokenizers \
+    tqdm \
+    transformers \
+    wandb
 
 RUN mamba clean -qya
 RUN pip cache purge
