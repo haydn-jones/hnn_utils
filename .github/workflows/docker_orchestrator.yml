@@ -29,12 +29,3 @@ jobs:
       tag: latest
       build_directory: ./docker/torch
     secrets: inherit
-
-  build-nightly:
-    uses: ./.github/workflows/docker_build_template.yml
-    needs: build-base
-    with:
-      image_name: haydnj/torch
-      tag: nightly
-      build_directory: ./docker/torch_nightly
-    secrets: inherit

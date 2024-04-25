@@ -1,15 +1,13 @@
-FROM haydnj/ml_base:latest
+FROM nvcr.io/nvidia/pytorch:24.03-py3
 
-RUN mamba install -qy pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-
-RUN pip install \
+RUN pip install --upgrade \
     botorch \
     datasets \
     einops \
     fcd \
     fire \
     gpytorch \
-    guacamol \
+    git+https://github.com/renzph/guacamol \
     hf_transfer \
     hnn-utils \
     ipython \
@@ -24,6 +22,3 @@ RUN pip install \
     tqdm \
     transformers \
     wandb
-
-RUN mamba clean -qya
-RUN pip cache purge
