@@ -6,9 +6,12 @@ authors = ["Haydn Jones <haydnjonest@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "hnn_utils" }]
 
+include = ["hnn_utils/datasets/vocab/*.json"]
+
 [tool.poetry.dependencies]
 python = "^3.7"
 einops = "^0.7.0"
+lightning = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core"]

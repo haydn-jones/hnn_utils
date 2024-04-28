@@ -76,6 +76,11 @@ def causal_mask(embed: Tensor) -> Tensor:
     """
     Creates a causal mask for self-attention.
     """
-    mask = torch.full((embed.shape[1], embed.shape[1]), -torch.inf, device=embed.device, dtype=embed.dtype)
+    mask = torch.full(
+        (embed.shape[1], embed.shape[1]),
+        -torch.inf,
+        device=embed.device,
+        dtype=embed.dtype,
+    )
     mask = torch.triu(mask, diagonal=1)
     return mask
