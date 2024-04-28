@@ -335,10 +335,10 @@ class CrossAttention(nn.Module):
             kv=kv.bfloat16(),
             causal=is_causal,
             alibi_slopes=slopes,
-        )
+        ).type(dtype)
 
         attn = rearrange(attn, "... h d -> ... (h d)")
-        return self.out_proj(attn).type(dtype)
+        return self.out_proj(attn)
 
 
 class SelfAttention(nn.Module):
@@ -409,10 +409,10 @@ class SelfAttention(nn.Module):
 
         attn = flash_attn_qkvpacked_func(
             qkv=qkv.bfloat16(), causal=is_causal, alibi_slopes=slopes
-        )
+        ).type(dtype)
 
         attn = rearrange(attn, "... h d -> ... (h d)")
-        return self.out_proj(attn).type(dtype)
+        return self.out_proj(attn)
 
 
 def combine_masks(
@@ -469,5 +469,5 @@ def can_flash(
         pad_mask is None
         and attn_mask is None
         and FLASH_AVAILABLE
-        and x.device.type != "cpu"
+        and x.device.type == "gpu"
     )
