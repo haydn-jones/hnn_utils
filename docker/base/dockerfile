@@ -32,5 +32,8 @@ RUN rm -rf /workspace/*
 RUN apt autoremove -y
 RUN apt autoclean -y
 
+# Huggingface home (generally where the HF ecosystem will cache things)
+RUN mkdir /huggingface
+ENV HF_HOME=/huggingface
 
 ENTRYPOINT [ "/bin/zsh" ]
