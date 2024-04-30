@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 import datasets
 import lightning as L
@@ -36,7 +37,7 @@ class ZINC20DataModule(L.LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_dataset(ds, "train", self.trainer)
+        ds = split_and_shuffle(ds, "train", self.trainer)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -51,7 +52,7 @@ class ZINC20DataModule(L.LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_dataset(ds, "val", self.trainer)
+        ds = split_and_shuffle(ds, "val", self.trainer)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -66,7 +67,7 @@ class ZINC20DataModule(L.LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_dataset(ds, "test", self.trainer)
+        ds = split_and_shuffle(ds, "test", self.trainer)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -80,13 +81,21 @@ class ZINC20DataModule(L.LightningDataModule):
         )
 
 
-def split_dataset(
-    dataset: datasets.Dataset, split: str, trainer: L.Trainer
+def split_and_shuffle(
+    dataset: datasets.IterableDataset, split: str, trainer: Optional[L.Trainer]
 ) -> datasets.Dataset:
-    if trainer is None:
-        return dataset
-
     dataset = dataset[split]
-    return split_dataset_by_node(
-        dataset, rank=trainer.global_rank, world_size=trainer.world_size
-    )
+
+    # Split according to distributed setup
+    if trainer is not None:
+        dataset = split_dataset_by_node(
+            dataset, rank=trainer.global_rank, world_size=trainer.world_size
+        )
+
+    # Shuffling an iterable dataset shuffles the *shards* and
+    # creates a buffer of size `buffer_size` (in elements, not bytes)
+    # which it randomly samples from. Larger buffer_size
+    # means more memory usage but better shuffling.
+    dataset = dataset.shuffle(buffer_size=16384)
+
+    return dataset
