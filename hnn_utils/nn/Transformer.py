@@ -7,8 +7,8 @@ from einops import rearrange
 from torch import Tensor
 
 from hnn_utils.nn.ALiBi import ALiBi
-from hnn_utils.nn.normalization import LayerNorm
 from hnn_utils.nn.ffn import FFNSwiGLU
+from hnn_utils.nn.normalization import LayerNorm
 
 try:
     from flash_attn import flash_attn_kvpacked_func, flash_attn_qkvpacked_func
@@ -295,9 +295,23 @@ class CrossAttention(nn.Module):
         attn_mask: Optional[Tensor] = None,
         is_causal: bool = False,
     ) -> Tensor:
+        assert not is_causal or (
+            pad_mask is None and attn_mask is None
+        ), "is_causal not supported with padding or attention masks."
+
         if can_flash(query, pad_mask, attn_mask):
             return self.flash_forward(query, kv, is_causal)
+        else:
+            return self.torch_forward(query, kv, pad_mask, attn_mask, is_causal)
 
+    def torch_forward(
+        self,
+        query: Tensor,
+        kv: Tensor,
+        pad_mask: Optional[Tensor] = None,
+        attn_mask: Optional[Tensor] = None,
+        is_causal: bool = False,
+    ) -> Tensor:
         q = self.q_proj(query)
         k, v = self.kv_proj(kv).chunk(2, dim=-1)
 
@@ -311,15 +325,23 @@ class CrossAttention(nn.Module):
             bias = self.alibi(q, k)
             mask = mask + bias if mask is not None else bias
 
+        if is_causal:
+            cm = causal_mask(query)
+            mask = mask + cm if mask is not None else cm
+
         dropout = self.dropout if self.training else 0.0
-        attn = F.scaled_dot_product_attention(
-            q, k, v, mask, is_causal=is_causal, dropout_p=dropout
-        )
+        attn = F.scaled_dot_product_attention(q, k, v, mask, dropout_p=dropout)
 
         attn = rearrange(attn, "... h n d -> ... n (h d)")
         return self.out_proj(attn)
 
     def flash_forward(self, query: Tensor, kv: Tensor, is_causal: bool) -> Tensor:
+        qshape, kvshape = query.shape, kv.shape
+        qseq_dims, kvseq_dims = qshape[-2:], kvshape[-2:]
+
+        query = query.reshape(-1, *qseq_dims)
+        kv = kv.reshape(-1, *kvseq_dims)
+
         q = self.q_proj(query)
         kv = self.kv_proj(kv)
 
@@ -338,7 +360,7 @@ class CrossAttention(nn.Module):
         ).type(dtype)
 
         attn = rearrange(attn, "... h d -> ... (h d)")
-        return self.out_proj(attn)
+        return self.out_proj(attn).reshape(qshape)
 
 
 class SelfAttention(nn.Module):
@@ -374,9 +396,22 @@ class SelfAttention(nn.Module):
         attn_mask: Optional[Tensor] = None,
         is_causal: bool = False,
     ) -> Tensor:
+        assert not is_causal or (
+            pad_mask is None and attn_mask is None
+        ), "is_causal not supported with padding or attention masks."
+
         if can_flash(x, pad_mask, attn_mask):
             return self.flash_forward(x, is_causal)
+        else:
+            return self.torch_forward(x, pad_mask, attn_mask, is_causal)
 
+    def torch_forward(
+        self,
+        x: Tensor,
+        pad_mask: Optional[Tensor] = None,
+        attn_mask: Optional[Tensor] = None,
+        is_causal: bool = False,
+    ) -> Tensor:
         q, k, v = self.qkv_proj(x).chunk(3, dim=-1)
 
         q = rearrange(q, "... n (h d) -> ... h n d", h=self.num_heads)
@@ -389,15 +424,21 @@ class SelfAttention(nn.Module):
             bias = self.alibi(q, k)
             mask = mask + bias if mask is not None else bias
 
+        if is_causal:
+            cm = causal_mask(x)
+            mask = mask + cm if mask is not None else cm
+
         dropout = self.dropout if self.training else 0.0
-        attn = F.scaled_dot_product_attention(
-            q, k, v, mask, is_causal=is_causal, dropout_p=dropout
-        )
+        attn = F.scaled_dot_product_attention(q, k, v, mask, dropout_p=dropout)
 
         attn = rearrange(attn, "... h n d -> ... n (h d)")
         return self.out_proj(attn)
 
     def flash_forward(self, x: Tensor, is_causal: bool) -> Tensor:
+        shape = x.shape
+        seq_dims = shape[-2:]
+        x = x.reshape(-1, *seq_dims)
+
         qkv = self.qkv_proj(x)
         qkv = rearrange(qkv, "... (n h d) -> ... n h d", h=self.num_heads, n=3)
 
@@ -412,7 +453,7 @@ class SelfAttention(nn.Module):
         ).type(dtype)
 
         attn = rearrange(attn, "... h d -> ... (h d)")
-        return self.out_proj(attn)
+        return self.out_proj(attn).reshape(shape)
 
 
 def combine_masks(
@@ -453,9 +494,11 @@ def _reset_parameters(mod: nn.Module) -> None:
 
 def causal_mask(embed: Tensor) -> Tensor:
     """
-    Creates a causal mask for self-attention.
+    Creates a causal mask for self-attention. Expects sequence length to be the 2nd to last dimension.
     """
-    mask = torch.full((embed.shape[1], embed.shape[1]), -torch.inf, device=embed.device, dtype=embed.dtype)  # fmt: skip
+    # Sequence length is 2nd to last dimension
+    SL = embed.shape[-2]
+    mask = torch.full((SL, SL), -torch.inf, device=embed.device, dtype=embed.dtype)  # fmt: skip
     mask = torch.triu(mask, diagonal=1)
     return mask
 
@@ -469,5 +512,5 @@ def can_flash(
         pad_mask is None
         and attn_mask is None
         and FLASH_AVAILABLE
-        and x.device.type == "gpu"
+        and x.device.type == "cuda"
     )
