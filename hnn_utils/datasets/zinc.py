@@ -17,7 +17,11 @@ DS_PATH = "haydn-jones/ZINC20"
 
 class ZINC20DataModule(L.LightningDataModule):
     def __init__(
-        self, batch_size: int, num_workers: int, randomize: Randomize = Randomize.NONE
+        self,
+        batch_size: int,
+        num_workers: int,
+        randomize: Randomize = Randomize.NONE,
+        seed: int = 42,
     ) -> None:
         super().__init__()
 
@@ -29,6 +33,7 @@ class ZINC20DataModule(L.LightningDataModule):
         )
 
         self.randomize = randomize
+        self.seed = seed
 
     def prepare_data(self) -> None:
         datasets.load_dataset(DS_PATH, streaming=True, save_infos=True, split="train")
@@ -37,7 +42,7 @@ class ZINC20DataModule(L.LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_and_shuffle(ds, "train", self.trainer)
+        ds = split_and_shuffle(ds, "train", self.trainer, seed=self.seed)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -52,7 +57,7 @@ class ZINC20DataModule(L.LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_and_shuffle(ds, "val", self.trainer)
+        ds = split_and_shuffle(ds, "val", self.trainer, seed=self.seed)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -67,7 +72,7 @@ class ZINC20DataModule(L.LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_and_shuffle(ds, "test", self.trainer)
+        ds = split_and_shuffle(ds, "test", self.trainer, seed=self.seed)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -82,7 +87,10 @@ class ZINC20DataModule(L.LightningDataModule):
 
 
 def split_and_shuffle(
-    dataset: datasets.IterableDataset, split: str, trainer: Optional[L.Trainer]
+    dataset: datasets.IterableDataset,
+    split: str,
+    trainer: Optional[L.Trainer],
+    seed: int = 42,
 ) -> datasets.Dataset:
     dataset = dataset[split]
 
@@ -96,6 +104,6 @@ def split_and_shuffle(
     # creates a buffer of size `buffer_size` (in elements, not bytes)
     # which it randomly samples from. Larger buffer_size
     # means more memory usage but better shuffling.
-    dataset = dataset.shuffle(buffer_size=16384)
+    dataset = dataset.shuffle(buffer_size=16384, seed=seed)
 
     return dataset
