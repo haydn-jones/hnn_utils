@@ -3,6 +3,7 @@ FROM haydnj/ml_base:latest
 RUN mamba install -qy pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 
 RUN pip install \
+    accelerate \
     botorch \
     datasets \
     einops \
