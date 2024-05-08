@@ -35,14 +35,17 @@ class ZINC20DataModule(L.LightningDataModule):
         self.randomize = randomize
         self.seed = seed
 
+        self.dataset: Optional[datasets.DatasetDict] = None
+
     def prepare_data(self) -> None:
-        datasets.load_dataset(DS_PATH, streaming=True, save_infos=True, split="train")
-        datasets.load_dataset(DS_PATH, streaming=True, save_infos=True, split="val")
-        datasets.load_dataset(DS_PATH, streaming=True, save_infos=True, split="test")
+        datasets.load_dataset(DS_PATH, streaming=True, save_infos=True)
+
+    def setup(self, stage: Optional[str] = None) -> None:
+        self.dataset = datasets.load_dataset(DS_PATH, streaming=True)
 
     def train_dataloader(self) -> DataLoader:
-        ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_and_shuffle(ds, "train", self.trainer, seed=self.seed)
+        ds = self.dataset["train"].select_columns("SELFIES")
+        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -56,8 +59,8 @@ class ZINC20DataModule(L.LightningDataModule):
         )
 
     def val_dataloader(self) -> DataLoader:
-        ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_and_shuffle(ds, "val", self.trainer, seed=self.seed)
+        ds = self.dataset["val"].select_columns("SELFIES")
+        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -71,8 +74,8 @@ class ZINC20DataModule(L.LightningDataModule):
         )
 
     def test_dataloader(self) -> DataLoader:
-        ds = datasets.load_dataset(DS_PATH, streaming=True).select_columns("SELFIES")
-        ds = split_and_shuffle(ds, "test", self.trainer, seed=self.seed)
+        ds = self.dataset["test"].select_columns("SELFIES")
+        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)
 
         transform = build_transform(self.vocab, self.randomize)
 
@@ -88,12 +91,9 @@ class ZINC20DataModule(L.LightningDataModule):
 
 def split_and_shuffle(
     dataset: datasets.IterableDataset,
-    split: str,
     trainer: Optional[L.Trainer],
     seed: int = 42,
 ) -> datasets.Dataset:
-    dataset = dataset[split]
-
     # Split according to distributed setup
     if trainer is not None:
         dataset = split_dataset_by_node(
