@@ -35,6 +35,9 @@ RUN wget -O /etc/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc && \
     cp /etc/zshrc /home/devuser/.zshrc && \
     chown devuser:devuser /home/devuser/.zshrc
 
+# Symlink /home/devuser to /home/runai-home
+RUN ln -s /home/devuser /home/runai-home
+
 # Install miniconda
 RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
 RUN chmod +x miniconda.sh && \
