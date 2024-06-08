@@ -31,9 +31,8 @@ WORKDIR /workspace
 
 RUN chsh -s /bin/zsh devuser
 
-RUN wget -O /etc/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc && \
-    cp /etc/zshrc /home/devuser/.zshrc && \
-    chown devuser:devuser /home/devuser/.zshrc
+RUN wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+RUN touch /home/devuser/.zshrc
 
 # Symlink /home/devuser to /home/runai-home
 RUN ln -s /home/devuser /home/runai-home
@@ -66,8 +65,7 @@ RUN apt autoclean -y
 RUN mkdir /huggingface
 ENV HF_HOME=/huggingface
 
-
 RUN chown -R devuser:devuser /home/devuser /workspace /huggingface
 USER devuser
 
-ENTRYPOINT [ "/bin/zsh", "-l" ]
+ENTRYPOINT [ "/bin/zsh" ]
