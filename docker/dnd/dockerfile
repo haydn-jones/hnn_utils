@@ -1,0 +1,10 @@
+FROM haydnj/torch:latest
+
+RUN pip install \
+    bs4 \
+    pymongo \
+    ray \
+    pandas \
+    polars \ 
+    ratelimit \
+    python-dotenv

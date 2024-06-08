@@ -29,3 +29,12 @@ jobs:
       tag: latest
       build_directory: ./docker/torch
     secrets: inherit
+
+  build-dnd:
+    uses: ./.github/workflows/docker_build_template.yml
+    needs: build-torch
+    with:
+      image_name: haydnj/dnd
+      tag: latest
+      build_directory: ./docker/dnd
+    secrets: inherit
