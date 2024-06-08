@@ -36,4 +36,3 @@ RUN pip install \
     wandb
 
 RUN mamba clean -qya
-RUN pip cache purge
