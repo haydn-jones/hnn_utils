@@ -29,8 +29,6 @@ RUN pip install \
 
 RUN pip install flash-attn --no-build-isolation
 
-RUN pip uninstall -y rdkit rdkit-pypi   
-RUN pip install rdkit
+RUN pip uninstall -y rdkit rdkit-pypi && mamba install -qy rdkit
 
 RUN mamba clean -qya
-RUN pip cache purge

@@ -1,39 +1,70 @@
-FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
 
-RUN apt update
-RUN apt upgrade -y
-RUN apt update
-RUN apt install -y curl ca-certificates git zsh wget vim make cmake ninja-build clang-14 openssh-server
+# Update and upgrade the system
+RUN apt update && apt upgrade -y
+
+# Install required packages
+RUN apt install -y \
+    curl wget htop tmux \
+    ca-certificates locales \
+    git git-core gnupg zsh vim \
+    openssh-server \
+    build-essential make cmake ninja-build clang-15 sudo
+
+# Generate locale
+RUN locale-gen en_US.UTF-8
+
+# Add user devuser and set password
+RUN adduser --quiet --disabled-password --shell /bin/zsh --home /home/devuser --gecos "User" devuser && \
+    echo "devuser:passwd" | chpasswd && \
+    usermod -aG sudo devuser
+
+# Configure passwordless sudo
+RUN echo "devuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devuser && \
+    chmod 0440 /etc/sudoers.d/devuser
+
+# Expose SSH port
+EXPOSE 22
 
 RUN mkdir /workspace
 WORKDIR /workspace
 
-# Zsh
-RUN wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
-RUN chsh -s /bin/zsh
+RUN chsh -s /bin/zsh devuser
+
+RUN wget -O /etc/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc && \
+    cp /etc/zshrc /home/devuser/.zshrc && \
+    chown devuser:devuser /home/devuser/.zshrc
 
 # Install miniconda
-RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
-    chmod +x miniconda.sh && \
-    ./miniconda.sh -b -p /opt/conda && \
-    rm miniconda.sh
-
-ENV PATH="/opt/conda/bin:${PATH}"
+RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+RUN chmod +x miniconda.sh && \
+    ./miniconda.sh -b -p /home/devuser/conda && \
+    ln -s /home/devuser/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    echo ". /home/devuser/conda/etc/profile.d/conda.sh" >> /home/devuser/.zshrc && \
+    echo "conda activate base" >> /home/devuser/.zshrc && \
+    rm miniconda.sh && \
+    chown -R devuser:devuser /home/devuser/conda
 
 # Misc
 # If you mount a git repo to /workspace, git will complain without this
 RUN git config --global --add safe.directory /workspace
-ENV USER=haydnj
 
-# Clean up
+# Disable the pip cache
+ENV PIP_NO_CACHE_DIR=1
+ENV PATH=/home/devuser/conda/bin:$PATH
+
+## Clean up
 RUN mamba clean -qya
-RUN pip cache purge
 RUN rm -rf /workspace/*
 RUN apt autoremove -y
 RUN apt autoclean -y
 
-# Huggingface home (generally where the HF ecosystem will cache things)
+## Huggingface home (generally where the HF ecosystem will cache things)
 RUN mkdir /huggingface
 ENV HF_HOME=/huggingface
 
-ENTRYPOINT [ "/bin/zsh" ]
+
+RUN chown -R devuser:devuser /home/devuser /workspace /huggingface
+USER devuser
+
+ENTRYPOINT [ "/bin/zsh", "-l" ]
