@@ -8,7 +8,6 @@ RUN apt install -y \
     curl wget htop tmux \
     ca-certificates locales \
     git git-core gnupg zsh vim \
-    openssh-server \
     build-essential make cmake ninja-build clang-15 sudo
 
 # Generate locale
@@ -23,29 +22,23 @@ RUN adduser --quiet --disabled-password --shell /bin/zsh --home /home/devuser --
 RUN echo "devuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devuser && \
     chmod 0440 /etc/sudoers.d/devuser
 
-# Expose SSH port
-EXPOSE 22
-
 RUN mkdir /workspace
 WORKDIR /workspace
 
 RUN chsh -s /bin/zsh devuser
-
-RUN wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+ARG ZSHRC_PATH=/etc/zsh/zshrc
+RUN wget -O ${ZSHRC_PATH} https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 RUN touch /home/devuser/.zshrc
 
-# Symlink /home/devuser to /home/runai-home
-RUN ln -s /home/devuser /home/runai-home
-
 # Install miniconda
+ARG CONDA_PATH=/opt/conda
+ENV PATH=${CONDA_PATH}/bin:$PATH
 RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
 RUN chmod +x miniconda.sh && \
-    ./miniconda.sh -b -p /home/devuser/conda && \
-    ln -s /home/devuser/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /home/devuser/conda/etc/profile.d/conda.sh" >> /home/devuser/.zshrc && \
-    echo "conda activate base" >> /home/devuser/.zshrc && \
-    rm miniconda.sh && \
-    chown -R devuser:devuser /home/devuser/conda
+    ./miniconda.sh -b -p ${CONDA_PATH} && \
+    chmod -R o+rw ${CONDA_PATH} && \
+    echo ". ${CONDA_PATH}/etc/profile.d/conda.sh" >> ${ZSHRC_PATH} && \
+    rm miniconda.sh
 
 # Misc
 # If you mount a git repo to /workspace, git will complain without this
@@ -53,7 +46,6 @@ RUN git config --global --add safe.directory /workspace
 
 # Disable the pip cache
 ENV PIP_NO_CACHE_DIR=1
-ENV PATH=/home/devuser/conda/bin:$PATH
 
 ## Clean up
 RUN mamba clean -qya
@@ -66,6 +58,5 @@ RUN mkdir /huggingface
 ENV HF_HOME=/huggingface
 
 RUN chown -R devuser:devuser /home/devuser /workspace /huggingface
-USER devuser
 
 ENTRYPOINT [ "/bin/zsh" ]
