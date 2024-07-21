@@ -6,19 +6,9 @@ import torch.nn.functional as F
 from einops import rearrange
 from torch import Tensor
 
-from hnn_utils.nn.ALiBi import ALiBi
 from hnn_utils.nn.ffn import FFNSwiGLU
 from hnn_utils.nn.normalization import LayerNorm
-
-try:
-    from flash_attn import flash_attn_kvpacked_func, flash_attn_qkvpacked_func
-
-    FLASH_AVAILABLE = True
-except ImportError as e:
-    print("Flash not available, using PyTorch implementation: ", e)
-    FLASH_AVAILABLE = False
-    flash_attn_kvpacked_func = None
-    flash_attn_qkvpacked_func = None
+from hnn_utils.nn.RoPE import apply_rotary_emb
 
 
 class TransformerEncoder(nn.Module):
@@ -104,7 +94,6 @@ class TransformerEncoderLayer(nn.Module):
         nhead (int): The number of heads in the multiheadattention models.
         dim_feedforward (int, optional): The dimension of the feedforward network model. Default is 2048.
         dropout (float, optional): The dropout value. Default is 0.1.
-        self_alibi (bool, optional): Whether to use self-alibi attention. Default is True.
         norm_cls (nn.Module, optional): The normalization layer class. Default is LayerNorm.
         ffn_cls (nn.Module, optional): The feedforward network class. Default is FFNSwiGLU.
         norm_first (bool, optional): Whether to apply normalization before the self-attention block. Default is True.
@@ -116,14 +105,13 @@ class TransformerEncoderLayer(nn.Module):
         nhead: int,
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
-        self_alibi: bool = True,
         norm_cls: Type[nn.Module] = LayerNorm,
         ffn_cls: Type[nn.Module] = FFNSwiGLU,
         norm_first: bool = True,
     ) -> None:
         super().__init__()
 
-        self.self_attn = SelfAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
+        self.self_attn = SelfAttention(d_model, nhead, dropout=dropout)
 
         self.ff_block = ffn_cls(d_model, dim_feedforward)
 
@@ -173,8 +161,6 @@ class TransformerDecoderLayer(nn.Module):
         nhead (int): The number of heads in the multiheadattention models.
         dim_feedforward (int, optional): The dimension of the feedforward network model. Default is 2048.
         dropout (float, optional): The dropout value. Default is 0.1.
-        self_alibi (bool, optional): Whether to use self-alibi attention. Default is True.
-        cross_alibi (bool, optional): Whether to use cross-alibi attention. Default is False.
         ffn_cls (nn.Module, optional): The feedforward network class. Default is FFNSwiGLU.
         norm_cls (nn.Module, optional): The normalization class. Default is LayerNorm.
         norm_first (bool, optional): Whether to apply normalization before each sub-layer. Default is False.
@@ -186,16 +172,14 @@ class TransformerDecoderLayer(nn.Module):
         nhead: int,
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
-        self_alibi: bool = True,
-        cross_alibi: bool = False,
         ffn_cls: Type[nn.Module] = FFNSwiGLU,
         norm_cls: Type[nn.Module] = LayerNorm,
         norm_first: bool = False,
     ):
         super().__init__()
 
-        self.self_attn = SelfAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
-        self.cross_attn = CrossAttention(d_model, nhead, dropout=dropout, use_alibi=cross_alibi)
+        self.self_attn = SelfAttention(d_model, nhead, dropout=dropout)
+        self.cross_attn = CrossAttention(d_model, nhead, dropout=dropout)
 
         self.ff_block = ffn_cls(d_model, dim_feedforward)
 
@@ -260,7 +244,6 @@ class CrossAttention(nn.Module):
         embed_dim: int,
         heads: int,
         dropout: float = 0.0,
-        use_alibi: bool = True,
     ):
         super().__init__()
 
@@ -276,9 +259,6 @@ class CrossAttention(nn.Module):
 
         self.out_proj = nn.Linear(heads * self.head_dim, embed_dim)
 
-        if use_alibi:
-            self.alibi = ALiBi(heads)
-
     def forward(
         self,
         query: Tensor,
@@ -291,19 +271,6 @@ class CrossAttention(nn.Module):
             pad_mask is None and attn_mask is None
         ), "is_causal not supported with padding or attention masks."
 
-        if can_flash(query, pad_mask, attn_mask):
-            return self.flash_forward(query, kv, is_causal)
-        else:
-            return self.torch_forward(query, kv, pad_mask, attn_mask, is_causal)
-
-    def torch_forward(
-        self,
-        query: Tensor,
-        kv: Tensor,
-        pad_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
-        is_causal: bool = False,
-    ) -> Tensor:
         q = self.q_proj(query)
         k, v = self.kv_proj(kv).chunk(2, dim=-1)
 
@@ -313,48 +280,18 @@ class CrossAttention(nn.Module):
 
         mask = combine_masks(attn_mask, pad_mask, self.num_heads, query.dtype)
 
-        if hasattr(self, "alibi"):
-            bias = self.alibi(q, k)
-            mask = mask + bias if mask is not None else bias
-
-        if is_causal:
-            cm = causal_mask(query)
-            mask = mask + cm if mask is not None else cm
-
         dropout = self.dropout if self.training else 0.0
-        attn = F.scaled_dot_product_attention(q, k, v, mask, dropout_p=dropout)
+        attn = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=mask,
+            is_causal=is_causal,
+            dropout_p=dropout,
+        )
 
         attn = rearrange(attn, "... h n d -> ... n (h d)")
         return self.out_proj(attn)
-
-    def flash_forward(self, query: Tensor, kv: Tensor, is_causal: bool) -> Tensor:
-        assert flash_attn_kvpacked_func is not None, "Flash not available."
-
-        qshape, kvshape = query.shape, kv.shape
-        qseq_dims, kvseq_dims = qshape[-2:], kvshape[-2:]
-
-        query = query.reshape(-1, *qseq_dims)
-        kv = kv.reshape(-1, *kvseq_dims)
-
-        q = self.q_proj(query)
-        kv = self.kv_proj(kv)
-
-        q = rearrange(q, "... (h d) -> ... h d", h=self.num_heads)
-        kv = rearrange(kv, "... (n h d) -> ... n h d", h=self.num_heads, n=2)
-
-        slopes = self.alibi.slopes.float().squeeze() if hasattr(self, "alibi") else None
-
-        dtype = query.dtype
-
-        attn = flash_attn_kvpacked_func(
-            q=q.bfloat16(),
-            kv=kv.bfloat16(),
-            causal=is_causal,
-            alibi_slopes=slopes,
-        ).type(dtype)  # type: ignore
-
-        attn = rearrange(attn, "... h d -> ... (h d)")
-        return self.out_proj(attn).reshape(qshape)
 
 
 class SelfAttention(nn.Module):
@@ -363,7 +300,6 @@ class SelfAttention(nn.Module):
         embed_dim: int,
         heads: int,
         dropout: float = 0.0,
-        use_alibi: bool = True,
     ):
         super().__init__()
 
@@ -378,9 +314,6 @@ class SelfAttention(nn.Module):
 
         self.out_proj = nn.Linear(heads * self.head_dim, embed_dim)
 
-        if use_alibi:
-            self.alibi = ALiBi(heads)
-
     def forward(
         self,
         x: Tensor,
@@ -392,18 +325,6 @@ class SelfAttention(nn.Module):
             pad_mask is None and attn_mask is None
         ), "is_causal not supported with padding or attention masks."
 
-        if can_flash(x, pad_mask, attn_mask):
-            return self.flash_forward(x, is_causal)
-        else:
-            return self.torch_forward(x, pad_mask, attn_mask, is_causal)
-
-    def torch_forward(
-        self,
-        x: Tensor,
-        pad_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
-        is_causal: bool = False,
-    ) -> Tensor:
         q, k, v = self.qkv_proj(x).chunk(3, dim=-1)
 
         q = rearrange(q, "... n (h d) -> ... h n d", h=self.num_heads)
@@ -412,9 +333,7 @@ class SelfAttention(nn.Module):
 
         mask = combine_masks(attn_mask, pad_mask, self.num_heads, q.dtype)
 
-        if hasattr(self, "alibi"):
-            bias = self.alibi(q, k)
-            mask = mask + bias if mask is not None else bias
+        q, k = apply_rotary_emb(q, k)
 
         if is_causal:
             cm = causal_mask(x)
@@ -425,27 +344,6 @@ class SelfAttention(nn.Module):
 
         attn = rearrange(attn, "... h n d -> ... n (h d)")
         return self.out_proj(attn)
-
-    def flash_forward(self, x: Tensor, is_causal: bool) -> Tensor:
-        assert flash_attn_qkvpacked_func is not None, "Flash not available."
-
-        shape = x.shape
-        seq_dims = shape[-2:]
-        x = x.reshape(-1, *seq_dims)
-
-        qkv = self.qkv_proj(x)
-        qkv = rearrange(qkv, "... (n h d) -> ... n h d", h=self.num_heads, n=3)
-
-        slopes = None
-        if hasattr(self, "alibi"):
-            slopes = self.alibi.slopes.float().squeeze()
-
-        dtype = x.dtype
-
-        attn = flash_attn_qkvpacked_func(qkv=qkv.bfloat16(), causal=is_causal, alibi_slopes=slopes).type(dtype)  # type: ignore
-
-        attn = rearrange(attn, "... h d -> ... (h d)")
-        return self.out_proj(attn).reshape(shape)
 
 
 def combine_masks(
@@ -493,11 +391,3 @@ def causal_mask(embed: Tensor) -> Tensor:
     mask = torch.full((SL, SL), -torch.inf, device=embed.device, dtype=embed.dtype)  # fmt: skip
     mask = torch.triu(mask, diagonal=1)
     return mask
-
-
-def can_flash(
-    x: Tensor,
-    pad_mask: Optional[Tensor] = None,
-    attn_mask: Optional[Tensor] = None,
-):
-    return pad_mask is None and attn_mask is None and FLASH_AVAILABLE and x.device.type == "cuda"
