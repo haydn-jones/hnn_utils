@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 
 
-def exp_lin(p, min_sigma: float = 0.0, max_sigma: float = 1.0):
+def exp_lin(p: Tensor, min_sigma: float = 0.0, max_sigma: float = 1.0) -> Tensor:
     """
     More stable parameterization of standard deviation, constrained to be in [min_sigma, max_sigma]
     See https://arxiv.org/abs/2106.13739 eqn. 18 for details
@@ -25,7 +25,7 @@ def gaussian_kl(
     sigmap: Tensor,
     muq: Tensor,
     sigmaq: Tensor,
-):
+) -> Tensor:
     """
     KL divergence between two diagonal Gaussians KL(p || q)
     """

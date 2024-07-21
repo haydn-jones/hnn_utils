@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional
 import lightning as L
 import torch
 from lightning import LightningModule, Trainer
+from lightning.fabric.utilities.exceptions import MisconfigurationException
 from lightning.pytorch.strategies import DDPStrategy, DeepSpeedStrategy, FSDPStrategy
-from lightning.pytorch.utilities.exceptions import MisconfigurationException
 from torch.optim import Optimizer
 
 
@@ -47,9 +47,7 @@ class EMACallback(L.Callback):
         self.every_n_steps = update_every_n_steps
 
         if start_on_step is not None and start_on_epoch is not None:
-            raise ValueError(
-                "Only one of `update_after_n_steps` and `update_after_n_epochs` can be set."
-            )
+            raise ValueError("Only one of `update_after_n_steps` and `update_after_n_epochs` can be set.")
 
         if start_on_step is not None:
             self.update_start = UpdateAfter.STEP
@@ -61,11 +59,9 @@ class EMACallback(L.Callback):
             self.update_start = UpdateAfter.STEP
             self.update_time = 0
 
-        self.excluded_parameters = (
-            set(excluded_parameters) if excluded_parameters else set()
-        )
+        self.excluded_parameters = set(excluded_parameters) if excluded_parameters else set()
 
-        self.ema_weights = None
+        self.ema_weights = {}
 
         # We track the step instead of using the trainer's global_step because
         # multiple optimizers can increment the global step multiple times per batch
@@ -79,9 +75,7 @@ class EMACallback(L.Callback):
         # to the device yet or not
         self.on_device = False
 
-    def on_before_optimizer_step(
-        self, trainer: Trainer, pl_module: LightningModule, optimizer: Optimizer
-    ) -> None:
+    def on_before_optimizer_step(self, trainer: Trainer, pl_module: LightningModule, optimizer: Optimizer) -> None:
         if not self.should_update(trainer):
             return
 
@@ -106,9 +100,7 @@ class EMACallback(L.Callback):
             self.step = 0
             self.on_device = True
         elif not self.on_device:
-            self.ema_weights = {
-                k: v.to(pl_module.device) for k, v in self.ema_weights.items()
-            }
+            self.ema_weights = {k: v.to(pl_module.device) for k, v in self.ema_weights.items()}
             self.on_device = True
 
     def should_update(self, trainer: Trainer):
@@ -142,9 +134,7 @@ class EMACallback(L.Callback):
 
     def setup(self, trainer: Trainer, pl_module: LightningModule, stage: str) -> None:
         if isinstance(trainer.strategy, (FSDPStrategy, DeepSpeedStrategy, DDPStrategy)):
-            raise MisconfigurationException(
-                "I haven't tested this with FSDP, DeepSpeed, or DDP. Don't use it."
-            )
+            raise MisconfigurationException("I haven't tested this with FSDP, DeepSpeed, or DDP. Don't use it.")
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -169,6 +159,6 @@ class EMACallback(L.Callback):
         self.every_n_steps = state_dict["every_n_steps"]
 
 
-def sd_copy(state_dict):
+def sd_copy(state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     """Probably faster than deepcopy idk"""
     return {k: v.clone().detach() for k, v in state_dict.items()}

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hnn_utils"
-version = "0.3.5"
+version = "0.3.6"
 description = "Various utilities used throughout my research"
 authors = ["Haydn Jones <haydnjonest@gmail.com>"]
 readme = "README.md"
@@ -17,7 +17,18 @@ lightning = ">=2.0.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ['py37']
-include = '\.pyi?$'
+indent-width = 4
+
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "ANN001"]
+ignore = []
+extend-select = ["I"]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

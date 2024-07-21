@@ -24,10 +24,8 @@ class Randomize(Enum):
     SRC_TARG = 3
 
 
-def collate_selfies(batch: List[Tensor], pad_idx: int):
-    tokens = torch.nn.utils.rnn.pad_sequence(
-        batch, batch_first=True, padding_value=pad_idx
-    )
+def collate_selfies(batch: List[Tensor], pad_idx: int) -> Tensor:
+    tokens = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=pad_idx)
 
     return tokens
 
@@ -65,7 +63,7 @@ def randomize_batch(
 
 
 def build_transform(vocab: dict, randomize: Randomize) -> Callable:
-    def transform(batch: List[dict]) -> dict:
+    def transform(batch: List[dict]) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         try:
             selfies = [ex["SELFIE"] for ex in batch]
         except KeyError:

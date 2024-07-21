@@ -13,7 +13,7 @@ class RMSNorm(nn.Module):
         super().__init__()
 
         self.eps = eps
-        self.register_parameter("weight", nn.Parameter(torch.ones(dim)))
+        self.register_parameter("weight", nn.Parameter(torch.ones(dim)))  # type: ignore
 
     def forward(self, x: Tensor) -> Tensor:
         rms = torch.rsqrt(x.square().mean(dim=-1, keepdim=True) + self.eps)

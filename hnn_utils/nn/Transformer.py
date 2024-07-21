@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Type, Union
 
 import torch
 import torch.nn as nn
@@ -17,6 +17,8 @@ try:
 except ImportError as e:
     print("Flash not available, using PyTorch implementation: ", e)
     FLASH_AVAILABLE = False
+    flash_attn_kvpacked_func = None
+    flash_attn_qkvpacked_func = None
 
 
 class TransformerEncoder(nn.Module):
@@ -115,15 +117,13 @@ class TransformerEncoderLayer(nn.Module):
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
         self_alibi: bool = True,
-        norm_cls: nn.Module = LayerNorm,
-        ffn_cls: nn.Module = FFNSwiGLU,
+        norm_cls: Type[nn.Module] = LayerNorm,
+        ffn_cls: Type[nn.Module] = FFNSwiGLU,
         norm_first: bool = True,
     ) -> None:
         super().__init__()
 
-        self.self_attn = SelfAttention(
-            d_model, nhead, dropout=dropout, use_alibi=self_alibi
-        )
+        self.self_attn = SelfAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
 
         self.ff_block = ffn_cls(d_model, dim_feedforward)
 
@@ -160,9 +160,7 @@ class TransformerEncoderLayer(nn.Module):
         pad_mask: Optional[Tensor],
         is_causal: bool = False,
     ) -> Tensor:
-        x = self.self_attn(
-            x, attn_mask=attn_mask, pad_mask=pad_mask, is_causal=is_causal
-        )
+        x = self.self_attn(x, attn_mask=attn_mask, pad_mask=pad_mask, is_causal=is_causal)
         return self.dropout(x)
 
 
@@ -190,18 +188,14 @@ class TransformerDecoderLayer(nn.Module):
         dropout: float = 0.1,
         self_alibi: bool = True,
         cross_alibi: bool = False,
-        ffn_cls: nn.Module = FFNSwiGLU,
-        norm_cls: nn.Module = LayerNorm,
+        ffn_cls: Type[nn.Module] = FFNSwiGLU,
+        norm_cls: Type[nn.Module] = LayerNorm,
         norm_first: bool = False,
     ):
         super().__init__()
 
-        self.self_attn = SelfAttention(
-            d_model, nhead, dropout=dropout, use_alibi=self_alibi
-        )
-        self.cross_attn = CrossAttention(
-            d_model, nhead, dropout=dropout, use_alibi=cross_alibi
-        )
+        self.self_attn = SelfAttention(d_model, nhead, dropout=dropout, use_alibi=self_alibi)
+        self.cross_attn = CrossAttention(d_model, nhead, dropout=dropout, use_alibi=cross_alibi)
 
         self.ff_block = ffn_cls(d_model, dim_feedforward)
 
@@ -275,9 +269,7 @@ class CrossAttention(nn.Module):
         self.head_dim = embed_dim // heads
         self.dropout = dropout
 
-        assert (
-            self.head_dim * heads == embed_dim
-        ), "Embedding size needs to be divisible by heads"
+        assert self.head_dim * heads == embed_dim, "Embedding size needs to be divisible by heads"
 
         self.q_proj = nn.Linear(self.embed_size, self.embed_size)
         self.kv_proj = nn.Linear(self.embed_size, self.embed_size * 2)
@@ -336,6 +328,8 @@ class CrossAttention(nn.Module):
         return self.out_proj(attn)
 
     def flash_forward(self, query: Tensor, kv: Tensor, is_causal: bool) -> Tensor:
+        assert flash_attn_kvpacked_func is not None, "Flash not available."
+
         qshape, kvshape = query.shape, kv.shape
         qseq_dims, kvseq_dims = qshape[-2:], kvshape[-2:]
 
@@ -357,7 +351,7 @@ class CrossAttention(nn.Module):
             kv=kv.bfloat16(),
             causal=is_causal,
             alibi_slopes=slopes,
-        ).type(dtype)
+        ).type(dtype)  # type: ignore
 
         attn = rearrange(attn, "... h d -> ... (h d)")
         return self.out_proj(attn).reshape(qshape)
@@ -378,9 +372,7 @@ class SelfAttention(nn.Module):
         self.head_dim = embed_dim // heads
         self.dropout = dropout
 
-        assert (
-            self.head_dim * heads == embed_dim
-        ), "Embedding size needs to be divisible by heads"
+        assert self.head_dim * heads == embed_dim, "Embedding size needs to be divisible by heads"
 
         self.qkv_proj = nn.Linear(self.embed_size, self.embed_size * 3)
 
@@ -435,6 +427,8 @@ class SelfAttention(nn.Module):
         return self.out_proj(attn)
 
     def flash_forward(self, x: Tensor, is_causal: bool) -> Tensor:
+        assert flash_attn_qkvpacked_func is not None, "Flash not available."
+
         shape = x.shape
         seq_dims = shape[-2:]
         x = x.reshape(-1, *seq_dims)
@@ -448,9 +442,7 @@ class SelfAttention(nn.Module):
 
         dtype = x.dtype
 
-        attn = flash_attn_qkvpacked_func(
-            qkv=qkv.bfloat16(), causal=is_causal, alibi_slopes=slopes
-        ).type(dtype)
+        attn = flash_attn_qkvpacked_func(qkv=qkv.bfloat16(), causal=is_causal, alibi_slopes=slopes).type(dtype)  # type: ignore
 
         attn = rearrange(attn, "... h d -> ... (h d)")
         return self.out_proj(attn).reshape(shape)
@@ -468,7 +460,7 @@ def combine_masks(
 
     dtype = dtype or torch.get_default_dtype()
 
-    def floatify(x):
+    def floatify(x: Union[None, Tensor]) -> Optional[Tensor]:
         if x is None:
             return None
         if x.dtype == torch.bool:
@@ -508,9 +500,4 @@ def can_flash(
     pad_mask: Optional[Tensor] = None,
     attn_mask: Optional[Tensor] = None,
 ):
-    return (
-        pad_mask is None
-        and attn_mask is None
-        and FLASH_AVAILABLE
-        and x.device.type == "cuda"
-    )
+    return pad_mask is None and attn_mask is None and FLASH_AVAILABLE and x.device.type == "cuda"

@@ -1,7 +1,8 @@
+import math
+
 import torch
 import torch.nn as nn
 from torch import Tensor
-import math
 
 
 class ALiBi(nn.Module):

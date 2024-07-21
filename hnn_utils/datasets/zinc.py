@@ -28,9 +28,7 @@ class ZINC20DataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-        self.vocab = json.load(
-            pkg_resources.resource_stream(__name__, "vocab/zinc20.json")
-        )
+        self.vocab = json.load(pkg_resources.resource_stream(__name__, "vocab/zinc20.json"))
 
         self.randomize = randomize
         self.seed = seed
@@ -41,16 +39,16 @@ class ZINC20DataModule(L.LightningDataModule):
         datasets.load_dataset(DS_PATH, streaming=True, save_infos=True)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        self.dataset = datasets.load_dataset(DS_PATH, streaming=True)
+        self.dataset = datasets.load_dataset(DS_PATH, streaming=True)  # type: ignore
 
     def train_dataloader(self) -> DataLoader:
-        ds = self.dataset["train"].select_columns("SELFIES")
-        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)
+        ds = self.dataset["train"].select_columns("SELFIES")  # type: ignore
+        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)  # type: ignore
 
         transform = build_transform(self.vocab, self.randomize)
 
         return DataLoader(
-            ds,
+            ds,  # type: ignore
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -59,13 +57,13 @@ class ZINC20DataModule(L.LightningDataModule):
         )
 
     def val_dataloader(self) -> DataLoader:
-        ds = self.dataset["val"].select_columns("SELFIES")
-        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)
+        ds = self.dataset["val"].select_columns("SELFIES")  # type: ignore
+        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)  # type: ignore
 
         transform = build_transform(self.vocab, self.randomize)
 
         return DataLoader(
-            ds,
+            ds,  # type: ignore
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -74,13 +72,13 @@ class ZINC20DataModule(L.LightningDataModule):
         )
 
     def test_dataloader(self) -> DataLoader:
-        ds = self.dataset["test"].select_columns("SELFIES")
-        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)
+        ds = self.dataset["test"].select_columns("SELFIES")  # type: ignore
+        ds = split_and_shuffle(ds, self.trainer, seed=self.seed)  # type: ignore
 
         transform = build_transform(self.vocab, self.randomize)
 
         return DataLoader(
-            ds,
+            ds,  # type: ignore
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -93,12 +91,10 @@ def split_and_shuffle(
     dataset: datasets.IterableDataset,
     trainer: Optional[L.Trainer],
     seed: int = 42,
-) -> datasets.Dataset:
+) -> datasets.IterableDataset:
     # Split according to distributed setup
     if trainer is not None:
-        dataset = split_dataset_by_node(
-            dataset, rank=trainer.global_rank, world_size=trainer.world_size
-        )
+        dataset = split_dataset_by_node(dataset, rank=trainer.global_rank, world_size=trainer.world_size)
 
     # Shuffling an iterable dataset shuffles the *shards* and
     # creates a buffer of size `buffer_size` (in elements, not bytes)
