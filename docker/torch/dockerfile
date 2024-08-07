@@ -9,14 +9,15 @@ RUN pip install \
     einops \
     fcd \
     fire \
-    gpytorch \
     git+https://github.com/renzph/guacamol \
+    gpytorch \
     hf_transfer \
     hnn-utils \
     ipython \
     joblib \
     lightning \
     matplotlib \
+    more_itertools \
     pandas \
     pyarrow \
     rich \
@@ -25,7 +26,7 @@ RUN pip install \
     tokenizers \
     tqdm \
     transformers \
-    wandb
+    wandb 
 
 RUN pip install flash-attn --no-build-isolation
 
