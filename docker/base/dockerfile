@@ -1,14 +1,36 @@
-FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+# Stage 1: Build stage
+FROM nvidia/cuda:12.5.1-devel-ubuntu24.04 AS builder
 
-# Update and upgrade the system
 RUN apt update && apt upgrade -y
 
-# Install required packages
 RUN apt install -y \
+    build-essential make cmake ninja-build clang-15 \
+    curl wget ca-certificates \
+    git git-core
+
+# Install miniconda
+ARG CONDA_PATH=/opt/conda
+ENV PATH=${CONDA_PATH}/bin:$PATH
+RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
+    chmod +x miniconda.sh && \
+    ./miniconda.sh -b -p ${CONDA_PATH} && \
+    rm miniconda.sh
+
+# Stage 2: Runtime stage
+FROM nvidia/cuda:12.5.1-devel-ubuntu24.04
+
+# Copy conda from builder stage
+COPY --from=builder /opt/conda /opt/conda
+RUN chmod -R a+rwx /opt/conda
+ENV PATH=/opt/conda/bin:/home/devuser/.local/bin:$PATH
+
+# Install runtime dependencies
+RUN apt update && apt install -y \
     curl wget htop tmux \
     ca-certificates locales \
-    git git-core gnupg zsh vim \
-    build-essential make cmake ninja-build clang-15 sudo
+    git git-core gnupg zsh vim sudo && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Generate locale
 RUN locale-gen en_US.UTF-8
@@ -30,33 +52,22 @@ ARG ZSHRC_PATH=/etc/zsh/zshrc
 RUN wget -O ${ZSHRC_PATH} https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 RUN touch /home/devuser/.zshrc
 
-# Install miniconda
-ARG CONDA_PATH=/opt/conda
-ENV PATH=${CONDA_PATH}/bin:$PATH
-RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-RUN chmod +x miniconda.sh && \
-    ./miniconda.sh -b -p ${CONDA_PATH} && \
-    chmod -R o+rw ${CONDA_PATH} && \
-    echo ". ${CONDA_PATH}/etc/profile.d/conda.sh" >> ${ZSHRC_PATH} && \
-    rm miniconda.sh
+# Add conda to zshrc
+RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ${ZSHRC_PATH}
 
 # Misc
-# If you mount a git repo to /workspace, git will complain without this
 RUN git config --global --add safe.directory /workspace
 
 # Disable the pip cache
 ENV PIP_NO_CACHE_DIR=1
 
-## Clean up
-RUN mamba clean -qya
-RUN rm -rf /workspace/*
-RUN apt autoremove -y
-RUN apt autoclean -y
-
-## Huggingface home (generally where the HF ecosystem will cache things)
+# Huggingface home
 RUN mkdir /huggingface
 ENV HF_HOME=/huggingface
 
 RUN chown -R devuser:devuser /home/devuser /workspace /huggingface
+
+USER devuser
+ENV USER=devuser
 
 ENTRYPOINT [ "/bin/zsh" ]
