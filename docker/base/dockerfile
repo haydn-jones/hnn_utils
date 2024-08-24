@@ -1,28 +1,4 @@
-# Stage 1: Build stage
-FROM nvidia/cuda:12.5.1-devel-ubuntu24.04 AS builder
-
-RUN apt update && apt upgrade -y
-
-RUN apt install -y \
-    build-essential make cmake ninja-build clang-15 \
-    curl wget ca-certificates \
-    git git-core
-
-# Install miniconda
-ARG CONDA_PATH=/opt/conda
-ENV PATH=${CONDA_PATH}/bin:$PATH
-RUN wget -O miniconda.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh && \
-    chmod +x miniconda.sh && \
-    ./miniconda.sh -b -p ${CONDA_PATH} && \
-    rm miniconda.sh
-
-# Stage 2: Runtime stage
 FROM nvidia/cuda:12.5.1-devel-ubuntu24.04
-
-# Copy conda from builder stage
-COPY --from=builder /opt/conda /opt/conda
-RUN chmod -R a+rwx /opt/conda
-ENV PATH=/opt/conda/bin:/home/devuser/.local/bin:$PATH
 
 # Install runtime dependencies
 RUN apt update && apt install -y \
@@ -35,39 +11,34 @@ RUN apt update && apt install -y \
 # Generate locale
 RUN locale-gen en_US.UTF-8
 
-# Add user devuser and set password
-RUN adduser --quiet --disabled-password --shell /bin/zsh --home /home/devuser --gecos "User" devuser && \
-    echo "devuser:passwd" | chpasswd && \
-    usermod -aG sudo devuser
+# Set up UV
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+ENV PATH="/root/.cargo/bin/:$PATH"
 
-# Configure passwordless sudo
-RUN echo "devuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/devuser && \
-    chmod 0440 /etc/sudoers.d/devuser
+# Create venv
+RUN uv venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Turn off cache and enable bytecode compilation (for faster startup)
+ENV UV_NO_CACHE=1
+ENV UV_COMPILE_BYTECODE=1
 
 RUN mkdir /workspace
 WORKDIR /workspace
 
-RUN chsh -s /bin/zsh devuser
+RUN chsh -s /bin/zsh
 ARG ZSHRC_PATH=/etc/zsh/zshrc
 RUN wget -O ${ZSHRC_PATH} https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
-RUN touch /home/devuser/.zshrc
-
-# Add conda to zshrc
-RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ${ZSHRC_PATH}
 
 # Misc
 RUN git config --global --add safe.directory /workspace
-
-# Disable the pip cache
-ENV PIP_NO_CACHE_DIR=1
 
 # Huggingface home
 RUN mkdir /huggingface
 ENV HF_HOME=/huggingface
 
-RUN chown -R devuser:devuser /home/devuser /workspace /huggingface
-
-USER devuser
 ENV USER=devuser
 
 ENTRYPOINT [ "/bin/zsh" ]

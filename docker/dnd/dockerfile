@@ -1,6 +1,6 @@
 FROM haydnj/torch:latest
 
-RUN pip install \
+RUN uv pip install \
     bs4 \
     pymongo \
     ray \

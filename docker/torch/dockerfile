@@ -1,14 +1,14 @@
 FROM haydnj/ml_base:latest
 
-RUN mamba install -qy pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
+RUN uv pip install torch torchvision torchaudio --find-links https://download.pytorch.org/whl/cu124
 
-RUN pip install \
+RUN uv pip install \
     botorch \
     datasets \
     einops \
     fcd \
     fire \
-    git+https://github.com/renzph/guacamol \
+    git+https://github.com/haydn-jones/guacamol \
     gpytorch \
     hf_transfer \
     hnn-utils \
@@ -23,12 +23,7 @@ RUN pip install \
     rich \
     schedulefree \
     selfies \
-    tokenizers \
     tqdm \
     wandb 
 
-RUN pip install flash-attn --no-build-isolation
-
-RUN pip uninstall -y rdkit rdkit-pypi && mamba install -qy rdkit
-
-RUN mamba clean -qya
+RUN uv pip install flash-attn --no-build-isolation
