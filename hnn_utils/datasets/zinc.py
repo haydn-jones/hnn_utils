@@ -8,9 +8,10 @@ from datasets.distributed import split_dataset_by_node
 from torch.utils.data import DataLoader
 
 from hnn_utils.datasets.utils import (
-    Randomize,
     build_transform,
+    Randomize,
 )
+
 
 DS_PATH = "haydn-jones/ZINC20"
 

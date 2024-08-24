@@ -16,7 +16,7 @@ class Randomize(Enum):
     Attributes:
         NONE (int): No randomization.
         RANDOM (int): Randomize the data.
-        SRC_TARG (int): Create a source/target pair with randomization (encoder takes in source, decoder takes in target).
+        SRC_TARG (int): Create a src/targ pair with randomization (encoder takes in source, decoder takes in target).
     """
 
     NONE = 1

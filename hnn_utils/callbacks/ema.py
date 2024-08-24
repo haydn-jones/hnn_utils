@@ -1,7 +1,7 @@
 # Much of this is inspired by lucidrains ema-pytorch
 # https://github.com/lucidrains/ema-pytorch
 
-from enum import Enum, auto
+from enum import auto, Enum
 from typing import Any, Dict, List, Optional
 
 import lightning as L
