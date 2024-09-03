@@ -37,4 +37,4 @@ RUN chmod -R 777 /opt /root /etc/zsh \
 
 WORKDIR /workspace
 
-ENTRYPOINT ["/bin/zsh"]
+CMD ["/bin/zsh"]
