@@ -22,9 +22,14 @@ RUN uv venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Make venv and /root visible to all users
-RUN find /opt/venv -type d -exec chmod 777 {} \;
-RUN find /root -type d -exec chmod 777 {} \;
+# Set permissions for venv
+RUN chmod -R 777 /opt/venv && \
+    find /opt/venv -type d -exec chmod 1777 {} \;
+
+# Set permissions for /root
+RUN chmod 1755 /root && \
+    mkdir -p /root/.cache && \
+    chmod 1777 /root/.cache
 
 # Turn off cache and enable bytecode compilation (for faster startup)
 ENV UV_NO_CACHE=1
@@ -43,7 +48,5 @@ RUN git config --global --add safe.directory /workspace
 # Huggingface home
 RUN mkdir /huggingface
 ENV HF_HOME=/huggingface
-
-ENV USER=devuser
 
 ENTRYPOINT [ "/bin/zsh" ]
