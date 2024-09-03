@@ -25,5 +25,3 @@ RUN uv pip install \
     selfies \
     tqdm \
     wandb 
-
-RUN uv pip install flash-attn --no-build-isolation

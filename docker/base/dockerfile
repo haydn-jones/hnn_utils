@@ -1,51 +1,43 @@
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
-# Install runtime dependencies
-RUN apt update && apt install -y \
+# Set environment variables
+ENV CARGO_HOME="/opt/cargo" \
+    PATH="/opt/cargo/bin:/opt/venv/bin:$PATH" \
+    UV_NO_CACHE=1 \
+    UV_COMPILE_BYTECODE=1 \
+    VIRTUAL_ENV="/opt/venv" \
+    ZDOTDIR="/etc/zsh" \
+    HF_HOME="/huggingface"
+
+# Install dependencies and set up the environment
+RUN apt update && apt install -y --no-install-recommends \
     curl wget htop tmux \
     ca-certificates locales \
-    git git-core gnupg zsh vim sudo && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/*
+    git git-core gnupg zsh vim sudo \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && locale-gen en_US.UTF-8 \
+    && mkdir -p /workspace /huggingface /home/runai-home \
+    && git config --global --add safe.directory /workspace
 
-# Generate locale
-RUN locale-gen en_US.UTF-8
-
-# Set up UV
-ENV CARGO_HOME="/opt/cargo"
-ENV PATH="/opt/cargo/bin:$PATH"
-ENV UV_NO_CACHE=1
-ENV UV_COMPILE_BYTECODE=1
-
+# Set up UV and create venv
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
-RUN sh /uv-installer.sh && rm /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh \
+    && . /opt/cargo/env \
+    && uv venv /opt/venv
 
-# Create venv
-RUN uv venv /opt/venv
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Set up ZSH
+RUN chsh -s /bin/zsh \
+    && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
+    && ln -s /etc/zsh/.zshrc /home/runai-home/.zshrc
 
-# ZSH
-RUN chsh -s /bin/zsh
-ARG ZSHRC_PATH=/etc/zsh/.zshrc
-RUN wget -O ${ZSHRC_PATH} https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
-ENV ZDOTDIR /etc/zsh
+# Set permissions
+RUN chmod -R 777 /opt /root /etc/zsh \
+    && chmod +t /opt /root /etc/zsh
 
-# Perms
-RUN chmod -R 777 /opt /root /etc/zsh
-RUN chmod +t /opt /root /etc/zsh
-
-RUN mkdir /workspace
 WORKDIR /workspace
 
-# Misc
-RUN git config --global --add safe.directory /workspace
+RUN useradd -m runai
+USER runai
 
-# Huggingface home
-RUN mkdir /huggingface
-ENV HF_HOME=/huggingface
-
-RUN mkdir -p /home/runai-home
-RUN ln -s ${ZSHRC_PATH} /home/runai-home/.zshrc
-
-ENTRYPOINT [ "/bin/zsh" ]
+ENTRYPOINT ["/bin/zsh"]
