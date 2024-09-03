@@ -37,7 +37,4 @@ RUN chmod -R 777 /opt /root /etc/zsh \
 
 WORKDIR /workspace
 
-RUN useradd -m runai
-USER runai
-
 ENTRYPOINT ["/bin/zsh"]
