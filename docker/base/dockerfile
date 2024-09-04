@@ -1,9 +1,5 @@
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
-# Now set permanent UMASK so any files created are other rwX'able
-RUN umask 0000
-RUN echo "umask 0000" >> /etc/profile
-
 # Set environment variables
 ENV CARGO_HOME="/opt/cargo" \
     PATH="/opt/cargo/bin:/opt/venv/bin:$PATH" \
@@ -16,10 +12,10 @@ ENV CARGO_HOME="/opt/cargo" \
 
 # Install dependencies and set up the environment
 RUN apt update && apt install -y --no-install-recommends \
-    curl wget htop tmux \
+    curl wget htop tmux acl \
     ca-certificates locales \
     git git-core gnupg zsh vim sudo \
-     build-essential gcc g++ clang ninja-build \
+    build-essential gcc g++ clang ninja-build \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8 \
@@ -36,11 +32,11 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh \
 RUN chsh -s /bin/zsh \
     && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 
-# Set permissions
-RUN chmod -R ugo=rwX /opt /root /etc/zsh
-
 WORKDIR /workspace
-RUN rm -rf /workspace/* && chmod -R ugo=rwX /workspace
+RUN rm -rf /workspace/*
+
+# Ensure that we can get brazy
+RUN setfacl -d -m u::rwX,g::rwX,o::rwX /etc/zsh /opt /root /workspace
 
 RUN useradd -m haydn
 USER haydn
