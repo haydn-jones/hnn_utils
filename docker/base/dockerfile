@@ -6,6 +6,7 @@ ENV CARGO_HOME="/opt/cargo" \
     UV_NO_CACHE=1 \
     UV_COMPILE_BYTECODE=1 \
     VIRTUAL_ENV="/opt/venv" \
+    UV_PROJECT_ENVIRONMENT="/opt/venv" \
     ZDOTDIR="/etc/zsh" \
     HF_HOME="/huggingface"
 
@@ -36,5 +37,10 @@ RUN chmod -R 777 /opt /root /etc/zsh \
     && chmod +t /opt /root /etc/zsh
 
 WORKDIR /workspace
+RUN rm -rf /workspace/* && chmod 777 /workspace
+
+RUN useradd -m haydn
+USER haydn
+ENV USER=haydn
 
 CMD ["/bin/zsh"]
