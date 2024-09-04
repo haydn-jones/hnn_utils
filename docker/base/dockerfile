@@ -1,5 +1,9 @@
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
+# Now set permanent UMASK so any files created are other rwX'able
+RUN umask 0000
+RUN echo "umask 0000" >> /etc/profile
+
 # Set environment variables
 ENV CARGO_HOME="/opt/cargo" \
     PATH="/opt/cargo/bin:/opt/venv/bin:$PATH" \
@@ -33,11 +37,10 @@ RUN chsh -s /bin/zsh \
     && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 
 # Set permissions
-RUN chmod -R 777 /opt /root /etc/zsh \
-    && chmod +t /opt /root /etc/zsh
+RUN chmod -R ugo=rwX /opt /root /etc/zsh
 
 WORKDIR /workspace
-RUN rm -rf /workspace/* && chmod 777 /workspace
+RUN rm -rf /workspace/* && chmod -R ugo=rwX /workspace
 
 RUN useradd -m haydn
 USER haydn
