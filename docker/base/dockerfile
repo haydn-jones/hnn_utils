@@ -15,10 +15,11 @@ RUN apt update && apt install -y --no-install-recommends \
     curl wget htop tmux \
     ca-certificates locales \
     git git-core gnupg zsh vim sudo \
+     build-essential gcc g++ clang ninja-build \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8 \
-    && mkdir -p /workspace /huggingface /home/runai-home \
+    && mkdir -p /workspace /huggingface \
     && git config --global --add safe.directory /workspace
 
 # Set up UV and create venv
@@ -29,8 +30,7 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh \
 
 # Set up ZSH
 RUN chsh -s /bin/zsh \
-    && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
-    && ln -s /etc/zsh/.zshrc /home/runai-home/.zshrc
+    && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 
 # Set permissions
 RUN chmod -R 777 /opt /root /etc/zsh \
