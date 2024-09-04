@@ -36,7 +36,8 @@ WORKDIR /workspace
 RUN rm -rf /workspace/*
 
 # Ensure that we can get brazy
-RUN setfacl -d -m u::rwX,g::rwX,o::rwX /etc/zsh /opt /root /workspace
+RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc /opt /root /workspace
+RUN chmod -R ugo=rwX /etc/zsh /opt /root /workspace
 
 RUN useradd -m haydn
 USER haydn
