@@ -29,5 +29,3 @@ RUN uv pip install \
     selfies \
     tqdm \
     wandb
-
-RUN chmod -R ugo=rwX /etc/zsh /opt /root /workspace
