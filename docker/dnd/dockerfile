@@ -8,3 +8,5 @@ RUN uv pip install \
     polars \ 
     ratelimit \
     python-dotenv
+
+RUN chmod -R ugo=rwX /etc/zsh /opt /root /workspace

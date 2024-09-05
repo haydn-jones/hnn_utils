@@ -1,5 +1,12 @@
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
+# Create user / group haydnj with UID/GID 67761
+RUN groupadd -g 67761 haydnj \
+    && useradd -m -u 67761 -g 67761 haydnj
+# Set the default user to haydnj
+USER haydnj
+# Give the user a home directory
+
 # Set environment variables
 ENV CARGO_HOME="/opt/cargo" \
     PATH="/opt/cargo/bin:/opt/venv/bin:$PATH" \
@@ -39,8 +46,6 @@ RUN rm -rf /workspace/*
 RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc /opt /root /workspace
 RUN chmod -R ugo=rwX /etc/zsh /opt /root /workspace
 
-RUN useradd -m haydn
-USER haydn
 ENV USER=haydn
 
 CMD ["/bin/zsh"]
