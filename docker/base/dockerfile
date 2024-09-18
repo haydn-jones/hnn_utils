@@ -1,8 +1,14 @@
-FROM python:3.12-slim-bookworm AS uv-stage
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
-COPY --from=uv-stage /bin/uv /bin/uv
+
+ENV CARGO_HOME="/opt/cargo" \
+    UV_NO_CACHE=1 \
+    UV_COMPILE_BYTECODE=1 \
+    VIRTUAL_ENV="/venv" \
+    UV_PROJECT_ENVIRONMENT="/venv" \
+    ZDOTDIR="/etc/zsh" \
+    HF_HOME="/huggingface"
+
+ENV PATH="${VIRTUAL_ENV}/bin:${CARGO_HOME}/bin:${PATH}"
 
 # Create user / group haydnj with UID/GID 67761
 RUN groupadd -g 67761 haydnj \
@@ -16,34 +22,27 @@ RUN apt update && apt install -y --no-install-recommends \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+
 RUN mkdir -p /workspace /huggingface \
     && git config --global --add safe.directory /workspace
 
 RUN mkdir /venv
 RUN chown -R haydnj:haydnj /workspace /venv
 
-# Set environment variables
-ENV PATH="/venv/bin:$PATH" \
-    UV_NO_CACHE=1 \
-    UV_COMPILE_BYTECODE=1 \
-    VIRTUAL_ENV="/venv" \
-    UV_PROJECT_ENVIRONMENT="/venv" \
-    ZDOTDIR="/etc/zsh" \
-    HF_HOME="/huggingface"
-
 # Set up ZSH
 RUN chsh -s /bin/zsh \
     && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 
-RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc/zsh /venv /workspace
-RUN chmod -R ugo=rwX /etc/zsh /venv /workspace
-
+RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc/zsh /workspace ${VIRTUAL_ENV} ${CARGO_HOME}
+RUN chmod -R ugo=rwX /etc/zsh /workspace ${VIRTUAL_ENV} ${CARGO_HOME}
 
 USER haydnj
 ENV USER=haydn
 
-RUN uv venv $VIRTUAL_ENV
-RUN echo $VIRTUAL_ENV
+RUN uv python install 3.12 3.11 3.10 3.9 3.8
+RUN uv venv --python 3.12 $VIRTUAL_ENV
 
 WORKDIR /workspace
 RUN rm -rf /workspace/*

@@ -1,6 +1,6 @@
 FROM haydnj/ml_base:latest
 
-RUN uv pip install torch torchvision torchaudio --find-links https://download.pytorch.org/whl/cu124
+RUN uv pip install torch==2.4.1+cu124 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu124
 
 RUN uv pip install \
     botorch \
