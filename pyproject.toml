@@ -1,11 +1,11 @@
 [project]
 name = "hnn-utils"
-version = "0.3.9"
+version = "0.3.10"
 description = "Various utilities used throughout my research"
 readme = "README.md"
 requires-python = ">=3.10"
+# Not specifying torch dep as idk how to get it to be ok with cuda 12.4 vs 12.1 etc
 dependencies = [
-    "torch>=2.0.0+cu124",
     "lightning>=2.0.0",
     "selfies>=2.1.2",
     "rdkit>=2023.3.1",
@@ -13,9 +13,6 @@ dependencies = [
     "datasets>=2.19.0",
 ]
 authors = [{ name = "Haydn Jones", email = "haydnjonest@gmail.com" }]
-
-[tool.uv]
-extra-index-url = ["https://download.pytorch.org/whl/cu124"]
 
 [build-system]
 requires = ["hatchling"]
