@@ -3,8 +3,8 @@ FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 ENV CARGO_HOME="/opt/cargo" \
     UV_NO_CACHE=1 \
     UV_COMPILE_BYTECODE=1 \
-    VIRTUAL_ENV="/venv" \
-    UV_PROJECT_ENVIRONMENT="/venv" \
+    VIRTUAL_ENV="/home/haydn/venv" \
+    UV_PROJECT_ENVIRONMENT="/home/haydnj/venv" \
     ZDOTDIR="/etc/zsh" \
     HF_HOME="/huggingface"
 
@@ -28,8 +28,7 @@ RUN sh /uv-installer.sh && rm /uv-installer.sh
 RUN mkdir -p /workspace /huggingface \
     && git config --global --add safe.directory /workspace
 
-RUN mkdir /venv
-RUN chown -R haydnj:haydnj /workspace /venv
+RUN chown -R haydnj:haydnj /workspace
 
 # Set up ZSH
 RUN chsh -s /bin/zsh \
