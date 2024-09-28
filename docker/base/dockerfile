@@ -3,7 +3,7 @@ FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 ENV CARGO_HOME="/opt/cargo" \
     UV_NO_CACHE=1 \
     UV_COMPILE_BYTECODE=1 \
-    VIRTUAL_ENV="/home/haydn/venv" \
+    VIRTUAL_ENV="/home/haydnj/venv" \
     UV_PROJECT_ENVIRONMENT="/home/haydnj/venv" \
     ZDOTDIR="/etc/zsh" \
     HF_HOME="/huggingface"
@@ -34,8 +34,8 @@ RUN chown -R haydnj:haydnj /workspace
 RUN chsh -s /bin/zsh \
     && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
 
-RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc/zsh /workspace ${VIRTUAL_ENV} ${CARGO_HOME}
-RUN chmod -R ugo=rwX /etc/zsh /workspace ${VIRTUAL_ENV} ${CARGO_HOME}
+RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc/zsh /workspace ${CARGO_HOME}
+RUN chmod -R ugo=rwX /etc/zsh /workspace ${CARGO_HOME}
 
 USER haydnj
 ENV USER=haydn
