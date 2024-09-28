@@ -1,8 +1,9 @@
 FROM haydnj/ml_base:latest
 
-RUN uv pip install torch==2.4.1+cu121 torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
-
 RUN uv pip install \
+    torch==2.4.1+cu121 \
+    torchvision==0.19.1+cu121 \
+    torchaudio==2.4.1+cu121 \
     botorch \
     datasets \
     einops \
@@ -24,4 +25,5 @@ RUN uv pip install \
     schedulefree \
     selfies \
     tqdm \
-    wandb 
+    wandb \
+    --extra-index-url https://download.pytorch.org/whl/cu121
