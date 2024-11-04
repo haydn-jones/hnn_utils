@@ -6,10 +6,9 @@ import pkg_resources
 from torch.utils.data import DataLoader
 
 from hnn_utils.datasets.utils import (
-    build_transform,
     Randomize,
+    build_transform,
 )
-
 
 DS_PATH = "haydn-jones/Guacamol"
 

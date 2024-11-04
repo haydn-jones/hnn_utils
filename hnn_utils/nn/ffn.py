@@ -1,4 +1,3 @@
-from typing import Optional
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,7 +14,7 @@ class FFNSwiGLU(nn.Module):
         self,
         dim: int,
         dim_feedforward: int,
-        out_dim: Optional[int] = None,
+        out_dim: int | None = None,
         use_bias: bool = True,
     ):
         super().__init__()
@@ -36,7 +35,7 @@ class FFNN(nn.Module):
         self,
         dim: int,
         dim_feedforward: int,
-        out_dim: Optional[int] = None,
+        out_dim: int | None = None,
         use_bias: bool = True,
     ):
         super().__init__()

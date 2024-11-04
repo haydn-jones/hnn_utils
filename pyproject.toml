@@ -24,13 +24,13 @@ include = ["hnn_utils/*", "hnn_utils/datasets/vocab/*.json"]
 [tool.ruff]
 line-length = 120
 indent-width = 4
+target-version = "py311"
 
 [tool.ruff.lint]
-fixable = ["I001", "F401"]
-ignore = ["E402", "E721", "E731", "E741", "F722"]
-select = ["E", "F", "I001"]
+select = ["E", "F", "UP", "B", "SIM", "I", "FURB", "ANN001"]
+ignore = ["B905"]
+fixable = ["ALL"]
 
-[tool.ruff.lint.isort]
-combine-as-imports = true
-lines-after-imports = 2
-order-by-type = false
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

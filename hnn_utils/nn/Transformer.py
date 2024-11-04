@@ -1,4 +1,3 @@
-from typing import Optional, Type, Union
 
 import torch
 import torch.nn as nn
@@ -28,8 +27,8 @@ class TransformerEncoder(nn.Module):
     def forward(
         self,
         src: Tensor,
-        mask: Optional[Tensor] = None,
-        src_pad_mask: Optional[Tensor] = None,
+        mask: Tensor | None = None,
+        src_pad_mask: Tensor | None = None,
         is_causal: bool = False,
     ) -> Tensor:
         output = src
@@ -61,10 +60,10 @@ class TransformerDecoder(nn.Module):
         self,
         tgt: Tensor,
         mem: Tensor,
-        tgt_mask: Optional[Tensor] = None,
-        mem_mask: Optional[Tensor] = None,
-        tgt_pad_mask: Optional[Tensor] = None,
-        mem_pad_mask: Optional[Tensor] = None,
+        tgt_mask: Tensor | None = None,
+        mem_mask: Tensor | None = None,
+        tgt_pad_mask: Tensor | None = None,
+        mem_pad_mask: Tensor | None = None,
         tgt_is_causal: bool = False,
         mem_is_causal: bool = False,
     ) -> Tensor:
@@ -105,8 +104,8 @@ class TransformerEncoderLayer(nn.Module):
         nhead: int,
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
-        norm_cls: Type[nn.Module] = LayerNorm,
-        ffn_cls: Type[nn.Module] = FFNSwiGLU,
+        norm_cls: type[nn.Module] = LayerNorm,
+        ffn_cls: type[nn.Module] = FFNSwiGLU,
         norm_first: bool = True,
     ) -> None:
         super().__init__()
@@ -127,8 +126,8 @@ class TransformerEncoderLayer(nn.Module):
     def forward(
         self,
         src: Tensor,
-        src_mask: Optional[Tensor] = None,
-        src_pad_mask: Optional[Tensor] = None,
+        src_mask: Tensor | None = None,
+        src_pad_mask: Tensor | None = None,
         is_causal: bool = False,
     ) -> Tensor:
         x = src
@@ -144,8 +143,8 @@ class TransformerEncoderLayer(nn.Module):
     def _sa_block(
         self,
         x: Tensor,
-        attn_mask: Optional[Tensor],
-        pad_mask: Optional[Tensor],
+        attn_mask: Tensor | None,
+        pad_mask: Tensor | None,
         is_causal: bool = False,
     ) -> Tensor:
         x = self.self_attn(x, attn_mask=attn_mask, pad_mask=pad_mask, is_causal=is_causal)
@@ -172,8 +171,8 @@ class TransformerDecoderLayer(nn.Module):
         nhead: int,
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
-        ffn_cls: Type[nn.Module] = FFNSwiGLU,
-        norm_cls: Type[nn.Module] = LayerNorm,
+        ffn_cls: type[nn.Module] = FFNSwiGLU,
+        norm_cls: type[nn.Module] = LayerNorm,
         norm_first: bool = False,
     ):
         super().__init__()
@@ -198,10 +197,10 @@ class TransformerDecoderLayer(nn.Module):
         self,
         tgt: Tensor,
         mem: Tensor,
-        tgt_mask: Optional[Tensor] = None,
-        mem_mask: Optional[Tensor] = None,
-        tgt_pad_mask: Optional[Tensor] = None,
-        mem_pad_mask: Optional[Tensor] = None,
+        tgt_mask: Tensor | None = None,
+        mem_mask: Tensor | None = None,
+        tgt_pad_mask: Tensor | None = None,
+        mem_pad_mask: Tensor | None = None,
         tgt_is_causal: bool = False,
         mem_is_causal: bool = False,
     ) -> Tensor:
@@ -219,8 +218,8 @@ class TransformerDecoderLayer(nn.Module):
     def _sa_block(
         self,
         x: Tensor,
-        attn_mask: Optional[Tensor],
-        pad_mask: Optional[Tensor],
+        attn_mask: Tensor | None,
+        pad_mask: Tensor | None,
         is_causal: bool = False,
     ) -> Tensor:
         x = self.self_attn(x, attn_mask=attn_mask, pad_mask=pad_mask, is_causal=is_causal)  # fmt: skip
@@ -230,8 +229,8 @@ class TransformerDecoderLayer(nn.Module):
         self,
         x: Tensor,
         mem: Tensor,
-        attn_mask: Optional[Tensor],
-        pad_mask: Optional[Tensor],
+        attn_mask: Tensor | None,
+        pad_mask: Tensor | None,
         is_causal: bool = False,
     ) -> Tensor:
         x = self.cross_attn(x, mem, attn_mask=attn_mask, pad_mask=pad_mask, is_causal=is_causal)  # fmt: skip
@@ -263,8 +262,8 @@ class CrossAttention(nn.Module):
         self,
         query: Tensor,
         kv: Tensor,
-        pad_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
+        pad_mask: Tensor | None = None,
+        attn_mask: Tensor | None = None,
         is_causal: bool = False,
     ) -> Tensor:
         assert not is_causal or (
@@ -317,8 +316,8 @@ class SelfAttention(nn.Module):
     def forward(
         self,
         x: Tensor,
-        pad_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
+        pad_mask: Tensor | None = None,
+        attn_mask: Tensor | None = None,
         is_causal: bool = False,
     ) -> Tensor:
         assert not is_causal or (
@@ -347,18 +346,18 @@ class SelfAttention(nn.Module):
 
 
 def combine_masks(
-    attn_mask: Optional[Tensor],
-    pad_mask: Optional[Tensor],
+    attn_mask: Tensor | None,
+    pad_mask: Tensor | None,
     heads: int = 1,
-    dtype: Optional[torch.dtype] = None,
-) -> Optional[Tensor]:
+    dtype: torch.dtype | None = None,
+) -> Tensor | None:
     """
     Combines the masks for attention and padding.
     """
 
     dtype = dtype or torch.get_default_dtype()
 
-    def floatify(x: Union[None, Tensor]) -> Optional[Tensor]:
+    def floatify(x: None | Tensor) -> Tensor | None:
         if x is None:
             return None
         if x.dtype == torch.bool:

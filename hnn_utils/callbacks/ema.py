@@ -1,8 +1,8 @@
 # Much of this is inspired by lucidrains ema-pytorch
 # https://github.com/lucidrains/ema-pytorch
 
-from enum import auto, Enum
-from typing import Any, Dict, List, Optional
+from enum import Enum, auto
+from typing import Any
 
 import lightning as L
 import torch
@@ -35,9 +35,9 @@ class EMACallback(L.Callback):
         self,
         tau: float = 0.9999,
         update_every_n_steps: int = 1,
-        start_on_step: Optional[int] = None,
-        start_on_epoch: Optional[int] = None,
-        excluded_parameters: Optional[List[str]] = None,
+        start_on_step: int | None = None,
+        start_on_epoch: int | None = None,
+        excluded_parameters: list[str] | None = None,
         use_for_val: bool = False,
     ):
         super().__init__()
@@ -133,10 +133,10 @@ class EMACallback(L.Callback):
             self._cached_sd = None
 
     def setup(self, trainer: Trainer, pl_module: LightningModule, stage: str) -> None:
-        if isinstance(trainer.strategy, (FSDPStrategy, DeepSpeedStrategy, DDPStrategy)):
+        if isinstance(trainer.strategy, FSDPStrategy | DeepSpeedStrategy | DDPStrategy):
             raise MisconfigurationException("I haven't tested this with FSDP, DeepSpeed, or DDP. Don't use it.")
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             "state_dict": self.ema_weights,
             "step": self.step,
@@ -148,7 +148,7 @@ class EMACallback(L.Callback):
             "every_n_steps": self.every_n_steps,
         }
 
-    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         self.ema_weights = state_dict["state_dict"]
         self.step = state_dict["step"]
         self.update_start = state_dict["update_start"]
@@ -159,6 +159,6 @@ class EMACallback(L.Callback):
         self.every_n_steps = state_dict["every_n_steps"]
 
 
-def sd_copy(state_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+def sd_copy(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     """Probably faster than deepcopy idk"""
     return {k: v.clone().detach() for k, v in state_dict.items()}

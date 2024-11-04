@@ -1,4 +1,3 @@
-from typing import Tuple
 
 import torch
 from einops import rearrange
@@ -8,7 +7,7 @@ from torch import Tensor
 def apply_rotary_emb(
     xq: torch.Tensor,
     xk: torch.Tensor,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     SL, D = xq.shape[-2:]
 
     freqs_cis = precompute_freqs_cis(

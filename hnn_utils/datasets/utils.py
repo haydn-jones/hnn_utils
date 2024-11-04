@@ -1,7 +1,7 @@
 import math
 import random
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, List, Tuple, Union
 
 import selfies as sf
 import torch
@@ -24,7 +24,7 @@ class Randomize(Enum):
     SRC_TARG = 3
 
 
-def collate_selfies(batch: List[Tensor], pad_idx: int) -> Tensor:
+def collate_selfies(batch: list[Tensor], pad_idx: int) -> Tensor:
     tokens = torch.nn.utils.rnn.pad_sequence(batch, batch_first=True, padding_value=pad_idx)
 
     return tokens
@@ -48,8 +48,8 @@ def randomize_selfie(selfie: str, p: float = 1.0) -> str:
 
 
 def randomize_batch(
-    selfies: List[str], mode: Randomize, p: float = 1.0
-) -> Union[List[str], Tuple[List[str], List[str]]]:
+    selfies: list[str], mode: Randomize, p: float = 1.0
+) -> list[str] | tuple[list[str], list[str]]:
     if mode == Randomize.NONE:
         return selfies
     elif mode == Randomize.RANDOM:
@@ -63,7 +63,7 @@ def randomize_batch(
 
 
 def build_transform(vocab: dict, randomize: Randomize) -> Callable:
-    def transform(batch: List[dict]) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+    def transform(batch: list[dict]) -> Tensor | tuple[Tensor, Tensor]:
         try:
             selfies = [ex["SELFIE"] for ex in batch]
         except KeyError:

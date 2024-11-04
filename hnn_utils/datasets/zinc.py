@@ -1,5 +1,4 @@
 import json
-from typing import Optional
 
 import datasets
 import lightning as L
@@ -8,10 +7,9 @@ from datasets.distributed import split_dataset_by_node
 from torch.utils.data import DataLoader
 
 from hnn_utils.datasets.utils import (
-    build_transform,
     Randomize,
+    build_transform,
 )
-
 
 DS_PATH = "haydn-jones/ZINC20"
 
@@ -34,12 +32,12 @@ class ZINC20DataModule(L.LightningDataModule):
         self.randomize = randomize
         self.seed = seed
 
-        self.dataset: Optional[datasets.DatasetDict] = None
+        self.dataset: datasets.DatasetDict | None = None
 
     def prepare_data(self) -> None:
         datasets.load_dataset(DS_PATH, streaming=True, save_infos=True)
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
         self.dataset = datasets.load_dataset(DS_PATH, streaming=True)  # type: ignore
 
     def train_dataloader(self) -> DataLoader:
@@ -90,7 +88,7 @@ class ZINC20DataModule(L.LightningDataModule):
 
 def split_and_shuffle(
     dataset: datasets.IterableDataset,
-    trainer: Optional[L.Trainer],
+    trainer: L.Trainer | None,
     seed: int = 42,
 ) -> datasets.IterableDataset:
     # Split according to distributed setup
