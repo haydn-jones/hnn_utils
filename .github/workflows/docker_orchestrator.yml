@@ -12,14 +12,6 @@ jobs:
       build_directory: ./docker/base
     secrets: inherit
 
-  build-trt:
-    uses: ./.github/workflows/docker_build_template_max.yml
-    with:
-      image_name: haydnj/tensorrt_llm
-      tag: latest
-      build_directory: ./docker/tensorrt_llm
-    secrets: inherit
-
   build-jax:
     uses: ./.github/workflows/docker_build_template.yml
     needs: build-base

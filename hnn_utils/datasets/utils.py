@@ -47,9 +47,7 @@ def randomize_selfie(selfie: str, p: float = 1.0) -> str:
     return sf.encoder(smile)
 
 
-def randomize_batch(
-    selfies: list[str], mode: Randomize, p: float = 1.0
-) -> list[str] | tuple[list[str], list[str]]:
+def randomize_batch(selfies: list[str], mode: Randomize, p: float = 1.0) -> list[str] | tuple[list[str], list[str]]:
     if mode == Randomize.NONE:
         return selfies
     elif mode == Randomize.RANDOM:
