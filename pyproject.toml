@@ -3,7 +3,7 @@ name = "hnn-utils"
 version = "0.3.10"
 description = "Various utilities used throughout my research"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 # Not specifying torch dep as idk how to get it to be ok with cuda 12.4 vs 12.1 etc
 dependencies = [
     "lightning>=2.0.0",

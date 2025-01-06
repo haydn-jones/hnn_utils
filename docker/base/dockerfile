@@ -1,14 +1,11 @@
-FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu20.04
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
-ENV CARGO_HOME="/opt/cargo" \
-    UV_NO_CACHE=1 \
+ENV UV_NO_CACHE=1 \
     UV_COMPILE_BYTECODE=1 \
     VIRTUAL_ENV="/home/haydnj/venv" \
     UV_PROJECT_ENVIRONMENT="/home/haydnj/venv" \
     ZDOTDIR="/etc/zsh" \
     HF_HOME="/huggingface"
-
-# ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Create user / group haydnj with UID/GID 67761
 RUN groupadd -g 67761 haydnj \
@@ -16,11 +13,17 @@ RUN groupadd -g 67761 haydnj \
 
 # Install dependencies and set up the environment
 RUN apt update && apt install -y --no-install-recommends \
-    curl wget htop tmux acl \
-    ca-certificates git git-core gnupg zsh  \
+    curl wget htop tmux acl openssh-server openssh-client \
+    ca-certificates git git-core gnupg zsh git \
     vim sudo build-essential gcc g++ clang ninja-build \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+# Get zellij
+RUN wget https://github.com/zellij-org/zellij/releases/download/v0.41.2/zellij-x86_64-unknown-linux-musl.tar.gz -O /tmp/zellij.tar.gz \
+    && tar -xvf /tmp/zellij.tar.gz -C /tmp \
+    && mv /tmp/zellij /bin/zellij \
+    && chmod +x /bin/zellij
 
 COPY --from=ghcr.io/astral-sh/uv:0.5.6 /uv /uvx /bin/
 
@@ -31,7 +34,8 @@ RUN chown -R haydnj:haydnj /workspace
 
 # Set up ZSH
 RUN chsh -s /bin/zsh \
-    && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc
+    && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
+    && echo "source /home/haydnj/venv/bin/activate" >> /etc/zsh/.zshrc
 
 RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc/zsh /workspace
 RUN chmod -R ugo=rwX /etc/zsh /workspace
