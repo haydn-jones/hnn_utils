@@ -1,10 +1,10 @@
 FROM runpod/base:0.6.2-cuda12.6.2
 
 ENV UV_COMPILE_BYTECODE=1 \
-    VIRTUAL_ENV="/workspace/venv" \
-    UV_PROJECT_ENVIRONMENT="/workspace/venv" \
+    VIRTUAL_ENV="/data/venv" \
+    UV_PROJECT_ENVIRONMENT="/data/venv" \
     ZDOTDIR="/etc/zsh" \
-    HF_HOME="/workspace/huggingface"
+    HF_HOME="/data/huggingface"
 
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
@@ -14,6 +14,15 @@ RUN apt update && apt install -y --no-install-recommends \
     vim sudo build-essential gcc g++ clang ninja-build \
     && apt clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+RUN (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
+    && sudo mkdir -p -m 755 /etc/apt/keyrings \
+    && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+    && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && sudo apt update \
+    && sudo apt install gh -y
 
 # Get zellij
 RUN wget https://github.com/zellij-org/zellij/releases/download/v0.41.2/zellij-x86_64-unknown-linux-musl.tar.gz -O /tmp/zellij.tar.gz \
