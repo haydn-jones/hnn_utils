@@ -35,8 +35,8 @@ RUN mkdir -p /workspace ${VIRTUAL_ENV} ${HF_HOME}  \
 
 # Set up ZSH
 RUN chsh -s /bin/zsh \
-    && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
-    && echo "source ${VIRTUAL_ENV}/bin/activate" >> /etc/zsh/.zshrc
+    && wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
+    && echo "source ${VIRTUAL_ENV}/bin/activate" >> /etc/zsh/zshrc
 
 USER brewuser
 RUN brew upgrade uv
