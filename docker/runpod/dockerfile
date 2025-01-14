@@ -4,9 +4,8 @@ ENV UV_COMPILE_BYTECODE=1 \
     VIRTUAL_ENV="/data/venv" \
     UV_PROJECT_ENVIRONMENT="/data/venv" \
     ZDOTDIR="/etc/zsh" \
-    HF_HOME="/data/huggingface"
-
-ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+    HF_HOME="/data/huggingface" \
+    PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 RUN apt update && apt install -y --no-install-recommends \
     curl wget htop tmux openssh-server openssh-client \
@@ -44,5 +43,30 @@ USER root
 
 RUN uv python install 3.12 3.11 3.10 3.9 3.8
 RUN uv venv --python 3.12 $VIRTUAL_ENV --seed
+RUN source ${VIRTUAL_ENV}/bin/activate
+
+RUN uv pip install \
+    torch==2.5.1+cu124 \
+    botorch \
+    datasets \
+    einops \
+    fcd \
+    fire \
+    gpytorch \
+    hf_transfer \
+    hnn-utils \
+    ipython \
+    joblib \
+    lightning \
+    matplotlib \
+    more_itertools \
+    pandas \
+    polars \
+    pyarrow \
+    rich \
+    selfies \
+    tqdm \
+    wandb \
+    --extra-index-url https://download.pytorch.org/whl/cu124
 
 WORKDIR /workspace/workspace
