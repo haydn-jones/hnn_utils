@@ -4,8 +4,9 @@ ENV UV_COMPILE_BYTECODE=1 \
     VIRTUAL_ENV="/data/venv" \
     UV_PROJECT_ENVIRONMENT="/data/venv" \
     ZDOTDIR="/etc/zsh" \
-    HF_HOME="/data/huggingface" \
-    PATH="${VIRTUAL_ENV}/bin:${PATH}"
+    HF_HOME="/data/huggingface"
+
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 RUN apt update && apt install -y --no-install-recommends \
     curl wget htop tmux openssh-server openssh-client \
@@ -68,5 +69,9 @@ RUN uv pip install \
     tqdm \
     wandb \
     --extra-index-url https://download.pytorch.org/whl/cu124
+
+# Install rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
+    && echo "source ${HOME}/.cargo/env" >> /etc/zsh/zshrc
 
 WORKDIR /workspace/workspace
