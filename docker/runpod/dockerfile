@@ -1,6 +1,7 @@
 FROM runpod/base:0.6.2-cuda12.6.2
 
 ENV UV_COMPILE_BYTECODE=1 \
+    UV_NO_CACHE=1 \
     VIRTUAL_ENV="/data/venv" \
     UV_PROJECT_ENVIRONMENT="/data/venv" \
     ZDOTDIR="/etc/zsh" \
