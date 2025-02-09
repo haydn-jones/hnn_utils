@@ -45,15 +45,17 @@ RUN chown -R haydnj:haydnj /workspace
 
 # Set up ZSH
 RUN chsh -s /bin/zsh \
-    && wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
-    && echo "source /home/haydnj/venv/bin/activate" >> /etc/zsh/zshrc
-
-# Install rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
-    && echo "source ${HOME}/.cargo/env" >> /etc/zsh/zshrc
+    && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
+    && echo "source /home/haydnj/venv/bin/activate" >> /etc/zsh/.zshrc
 
 RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc/zsh /workspace
 RUN chmod -R ugo=rwX /etc/zsh /workspace
+
+# Install rust
+USER haydnj
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+USER root
+RUN echo "source /home/haydnj/.cargo/env" >> /etc/zsh/zshrc
 
 USER haydnj
 ENV USER=haydn
