@@ -1,7 +1,7 @@
 FROM haydnj/ml_base:latest
 
 RUN uv pip install \
-    torch==2.5.1+cu124 \
+    torch==2.6.0+cu124 \
     botorch \
     datasets \
     einops \
