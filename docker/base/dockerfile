@@ -7,9 +7,16 @@ ENV UV_NO_CACHE=1 \
     ZDOTDIR="/etc/zsh" \
     HF_HOME="/huggingface"
 
-# Create user / group haydnj with UID/GID 67761
+# Create user/group and set up shared directories with proper permissions
 RUN groupadd -g 67761 haydnj \
-    && useradd -m -u 67761 -g 67761 haydnj
+    && useradd -m -u 67761 -g haydnj haydnj \
+    && useradd -m -u 68473 -g haydnj gg8 \
+    && mkdir -p /workspace /huggingface /home/haydnj/venv \
+    && chown -R haydnj:haydnj /workspace /huggingface /home/haydnj/venv \
+    && chmod -R 2775 /workspace /huggingface /home/haydnj/venv \
+    # Set default umask system-wide to ensure new files are group-writable
+    && echo "umask 0002" >> /etc/profile \
+    && echo "umask 0002" >> /etc/bash.bashrc
 
 # Install dependencies and set up the environment
 RUN apt update && apt install -y --no-install-recommends \
@@ -17,7 +24,10 @@ RUN apt update && apt install -y --no-install-recommends \
     ca-certificates git git-core gnupg zsh git \
     vim sudo build-essential gcc g++ clang ninja-build \
     && apt clean \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
+    # Now use ACLs for shared directories after acl package is installed
+    && setfacl -R -d -m g:haydnj:rwX /workspace /huggingface /home/haydnj/venv \
+    && setfacl -R -m g:haydnj:rwX /workspace /huggingface /home/haydnj/venv
 
 # Github CLI
 RUN (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
@@ -38,32 +48,39 @@ RUN wget https://github.com/zellij-org/zellij/releases/download/v0.41.2/zellij-x
 # Get uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN mkdir -p /workspace /huggingface \
-    && git config --global --add safe.directory /workspace
-
-RUN chown -R haydnj:haydnj /workspace
+RUN git config --global --add safe.directory /workspace
 
 # Set up ZSH
 RUN chsh -s /bin/zsh \
     && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
-    && echo "source /home/haydnj/venv/bin/activate" >> /etc/zsh/.zshrc
+    && echo "source /home/haydnj/venv/bin/activate" >> /etc/zsh/.zshrc \
+    && chmod -R 2775 /etc/zsh
 
-RUN setfacl -d -R -m u::rwX,g::rwX,o::rwX /etc/zsh /workspace
-RUN chmod -R ugo=rwX /etc/zsh /workspace
+# Set default umask to ensure new files are group-writable
+RUN echo "umask 0002" >> /etc/zsh/.zshrc
+
+# Configure git for better group permissions
+RUN git config --system core.sharedRepository group
 
 # Install rust
 USER haydnj
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path \
+    && chmod -R g+rwX /home/haydnj/.cargo
+
 USER root
 RUN echo "source /home/haydnj/.cargo/env" >> /etc/zsh/zshrc
 
 USER haydnj
-ENV USER=haydn
+ENV USER=haydnj
 
-RUN uv python install 3.12 3.11 3.10 3.9
-RUN uv venv --python 3.12 $VIRTUAL_ENV
+RUN uv python install 3.12 3.11 3.10 3.9 \
+    && uv venv --python 3.12 $VIRTUAL_ENV \
+    && chmod -R g+rwX $VIRTUAL_ENV
 
 WORKDIR /workspace
 RUN rm -rf /workspace/*
+
+USER gg8
+ENV USER=gg8
 
 CMD ["/bin/zsh"]
