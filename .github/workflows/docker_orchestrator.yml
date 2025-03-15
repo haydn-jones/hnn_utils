@@ -13,7 +13,7 @@ jobs:
     secrets: inherit
 
   build-runpod:
-    uses: ./.github/workflows/docker_build_template.yml
+    uses: ./.github/workflows/docker_build_template_max.yml
     with:
       image_name: haydnj/runpod
       tag: latest
