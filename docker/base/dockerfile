@@ -1,86 +1,118 @@
-FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
 
+###############################################################################
+# Install system dependencies
+###############################################################################
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget htop tmux openssh-server openssh-client \
+    ca-certificates git git-core gnupg zsh git \
+    vim sudo build-essential gcc g++ clang ninja-build \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+###############################################################################
+# Copy UV binaries from official image
+###############################################################################
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+###############################################################################
+# Install GitHub CLI
+###############################################################################
+RUN (type -p wget >/dev/null || (apt-get update && apt-get install wget -y)) \
+    && mkdir -p -m 755 /etc/apt/keyrings \
+    && out=$(mktemp) \
+    && wget -nv -O $out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    && cat $out | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y gh
+
+###############################################################################
+# Environment variables
+###############################################################################
 ENV UV_NO_CACHE=1 \
     UV_COMPILE_BYTECODE=1 \
-    VIRTUAL_ENV="/home/haydnj/venv" \
-    UV_PROJECT_ENVIRONMENT="/home/haydnj/venv" \
+    VIRTUAL_ENV="/researchers/venv" \
+    UV_PROJECT_ENVIRONMENT="/researchers/venv" \
     ZDOTDIR="/etc/zsh" \
     HF_HOME="/huggingface"
 
-# Create user/group and set up shared directories with proper permissions
-RUN groupadd -g 67761 haydnj \
-    && useradd -m -u 67761 -g haydnj haydnj \
-    && useradd -m -u 68473 -g haydnj gg8 \
-    && mkdir -p /workspace /huggingface /home/haydnj/venv \
-    && chown -R haydnj:haydnj /workspace /huggingface /home/haydnj/venv \
-    && chmod -R 2775 /workspace /huggingface /home/haydnj/venv \
-    # Set default umask system-wide to ensure new files are group-writable
-    && echo "umask 0002" >> /etc/profile \
-    && echo "umask 0002" >> /etc/bash.bashrc
+###############################################################################
+# Create group and users, plus shared directories
+###############################################################################
+RUN groupadd -g 67761 researchers \
+    && useradd -m -u 67761 -g researchers haydnj \
+    && useradd -m -u 68473 -g researchers gg8 \
+    \
+    # Create shared directories (owned by root:researchers)
+    && mkdir -p /workspace /huggingface "${VIRTUAL_ENV}" \
+    && chown -R root:researchers /workspace /huggingface "${VIRTUAL_ENV}" \
+    # 2775 => setgid bit so new files are also owned by group 'researchers'
+    # + group write (775)
+    && chmod -R 2775 /workspace /huggingface "${VIRTUAL_ENV}" \
+    \
+    && chmod 2775 /root /etc/zsh \
+    && chown root:researchers /root /etc/zsh
 
-# Install dependencies and set up the environment
-RUN apt update && apt install -y --no-install-recommends \
-    curl wget htop tmux acl openssh-server openssh-client \
-    ca-certificates git git-core gnupg zsh git \
-    vim sudo build-essential gcc g++ clang ninja-build \
-    && apt clean \
-    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* \
-    # Now use ACLs for shared directories after acl package is installed
-    && setfacl -R -d -m g:haydnj:rwX /workspace /huggingface /home/haydnj/venv \
-    && setfacl -R -m g:haydnj:rwX /workspace /huggingface /home/haydnj/venv
-
-# Github CLI
-RUN (type -p wget >/dev/null || (sudo apt update && sudo apt-get install wget -y)) \
-    && sudo mkdir -p -m 755 /etc/apt/keyrings \
-    && out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    && cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
-    && sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-    && sudo apt update \
-    && sudo apt install gh -y
-
-# Get zellij
+###############################################################################
+# Install Zellij
+###############################################################################
 RUN wget https://github.com/zellij-org/zellij/releases/download/v0.41.2/zellij-x86_64-unknown-linux-musl.tar.gz -O /tmp/zellij.tar.gz \
     && tar -xvf /tmp/zellij.tar.gz -C /tmp \
     && mv /tmp/zellij /bin/zellij \
     && chmod +x /bin/zellij
 
-# Get uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+###############################################################################
+# Configure Git
+###############################################################################
+RUN git config --system core.sharedRepository group \
+    && git config --global --add safe.directory /workspace
 
-RUN git config --global --add safe.directory /workspace
-
-# Set up ZSH
+###############################################################################
+# Set up ZSH system-wide
+###############################################################################
 RUN chsh -s /bin/zsh \
+    # Grml's ZSH config as base
     && wget -O /etc/zsh/.zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
-    && echo "source /home/haydnj/venv/bin/activate" >> /etc/zsh/.zshrc \
-    && chmod -R 2775 /etc/zsh
+    && echo "source ${VIRTUAL_ENV}/bin/activate" >> /etc/zsh/zshrc \
+    && echo "source ${VIRTUAL_ENV}/bin/activate" >> /etc/bash.bashrc \
+    && chmod -R 2775 /etc/zsh /etc/bash.bashrc
 
-# Set default umask to ensure new files are group-writable
-RUN echo "umask 0002" >> /etc/zsh/.zshrc
-
-# Configure git for better group permissions
-RUN git config --system core.sharedRepository group
-
-# Install rust
-USER haydnj
+###############################################################################
+# Install Rust (as root), ensure group can write to .cargo
+###############################################################################
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path \
-    && chmod -R g+rwX /home/haydnj/.cargo
+    # Rust installs to /root/.cargo, /root/.rustup by default
+    && chown -R root:researchers /root/.cargo /root/.rustup \
+    && chmod -R 2775 /root/.cargo /root/.rustup \
+    # Let all users source Rust's env if needed
+    && echo "source /root/.cargo/env" >> /etc/zsh/zshrc \
+    && echo "source /root/.cargo/env" >> /etc/bash.bashrc
 
-USER root
-RUN echo "source /home/haydnj/.cargo/env" >> /etc/zsh/zshrc
+###############################################################################
+# Install Python versions & create venv using UV (as root)
+###############################################################################
+RUN uv python install 3.12 3.11 3.10 3.9 \
+    && uv venv --python 3.12 "${VIRTUAL_ENV}" \
+    \
+    # Change ownership to root:researchers and ensure group-write
+    && chown -R root:researchers "${VIRTUAL_ENV}" \
+    && chmod -R 2775 "${VIRTUAL_ENV}"
 
+###############################################################################
+# Clean up workspace
+###############################################################################
+WORKDIR /workspace
+RUN rm -rf /workspace/* \
+    && chown root:researchers /workspace \
+    && chmod 2775 /workspace
+
+###############################################################################
+# Drop down to user haydnj
+###############################################################################
 USER haydnj
 ENV USER=haydnj
-
-RUN uv python install 3.12 3.11 3.10 3.9 \
-    && uv venv --python 3.12 $VIRTUAL_ENV \
-    && chmod -R g+rwX $VIRTUAL_ENV
-
-WORKDIR /workspace
-RUN rm -rf /workspace/*
-
-USER gg8
-ENV USER=gg8
 
 CMD ["/bin/zsh"]
