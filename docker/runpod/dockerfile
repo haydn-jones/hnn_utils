@@ -43,12 +43,12 @@ USER brewuser
 RUN brew upgrade uv
 USER root
 
-RUN uv python install 3.12 3.11 3.10 3.9 3.8
+RUN uv python install 3.12 3.11 3.10
 RUN uv venv --python 3.12 $VIRTUAL_ENV --seed
 RUN source ${VIRTUAL_ENV}/bin/activate
 
 RUN uv pip install \
-    torch==2.5.1+cu124 \
+    torch==2.6.0+cu124 \
     botorch \
     datasets \
     einops \
