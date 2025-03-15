@@ -25,3 +25,9 @@ RUN uv pip install \
     tqdm \
     wandb \
     --extra-index-url https://download.pytorch.org/whl/cu124
+
+# Give group read/write access to every file in the venv
+RUN chmod 2775 /researchers/venv \
+    && chown -R root:researchers /researchers/venv \
+    && find /researchers/venv -type d -exec chmod 2775 {} \; \
+    && find /researchers/venv -type f -exec chmod 0664 {} \;

@@ -34,6 +34,8 @@ RUN (type -p wget >/dev/null || (apt-get update && apt-get install wget -y)) \
 ###############################################################################
 ENV UV_NO_CACHE=1 \
     UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE="copy" \
+    UV_PYTHON_INSTALL_DIR="/researchers/uv/python" \
     VIRTUAL_ENV="/researchers/venv" \
     UV_PROJECT_ENVIRONMENT="/researchers/venv" \
     ZDOTDIR="/etc/zsh" \
@@ -94,8 +96,11 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path \
 ###############################################################################
 # Install Python versions & create venv using UV (as root)
 ###############################################################################
+RUN chmod 2775 /researchers \
+    && chown -R root:researchers /researchers
+
 RUN uv python install 3.12 3.11 3.10 3.9 \
-    && uv venv --python 3.12 "${VIRTUAL_ENV}" \
+    && uv venv --relocatable --python 3.12 "${VIRTUAL_ENV}" \
     \
     # Change ownership to root:researchers and ensure group-write
     && chown -R root:researchers "${VIRTUAL_ENV}" \
@@ -108,11 +113,5 @@ WORKDIR /workspace
 RUN rm -rf /workspace/* \
     && chown root:researchers /workspace \
     && chmod 2775 /workspace
-
-###############################################################################
-# Drop down to user haydnj
-###############################################################################
-USER haydnj
-ENV USER=haydnj
 
 CMD ["/bin/zsh"]
