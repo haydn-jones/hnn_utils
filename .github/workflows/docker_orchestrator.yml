@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-base:
-    uses: ./.github/workflows/docker_build_template.yml
+    uses: ./.github/workflows/docker_build_template_max.yml
     with:
       image_name: haydnj/ml_base
       tag: latest
@@ -21,7 +21,7 @@ jobs:
     secrets: inherit
 
   build-jax:
-    uses: ./.github/workflows/docker_build_template.yml
+    uses: ./.github/workflows/docker_build_template_max.yml
     needs: build-base
     with:
       image_name: haydnj/jax
@@ -30,7 +30,7 @@ jobs:
     secrets: inherit
 
   build-torch:
-    uses: ./.github/workflows/docker_build_template.yml
+    uses: ./.github/workflows/docker_build_template_max.yml
     needs: build-base
     with:
       image_name: haydnj/torch
@@ -39,7 +39,7 @@ jobs:
     secrets: inherit
 
   build-dnd:
-    uses: ./.github/workflows/docker_build_template.yml
+    uses: ./.github/workflows/docker_build_template_max.yml
     needs: build-torch
     with:
       image_name: haydnj/dnd
