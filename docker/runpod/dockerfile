@@ -1,5 +1,10 @@
 FROM runpod/base:0.6.3-cuda12.6.2
 
+###############################################################################
+# Copy UV binaries from official image
+###############################################################################
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 ENV UV_COMPILE_BYTECODE=1 \
     UV_NO_CACHE=1 \
     VIRTUAL_ENV="/data/venv" \
@@ -38,10 +43,6 @@ RUN mkdir -p /workspace ${VIRTUAL_ENV} ${HF_HOME}  \
 RUN chsh -s /bin/zsh \
     && wget -O /etc/zsh/zshrc https://git.grml.org/f/grml-etc-core/etc/zsh/zshrc \
     && echo "source ${VIRTUAL_ENV}/bin/activate" >> /etc/zsh/zshrc
-
-USER brewuser
-RUN brew upgrade uv
-USER root
 
 RUN uv python install 3.12 3.11 3.10
 RUN uv venv --python 3.12 $VIRTUAL_ENV --seed
