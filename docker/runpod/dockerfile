@@ -1,4 +1,4 @@
-FROM runpod/base:0.6.2-cuda12.6.2
+FROM runpod/base:0.6.3-cuda12.6.2
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_NO_CACHE=1 \
@@ -48,7 +48,7 @@ RUN uv venv --python 3.12 $VIRTUAL_ENV --seed
 RUN source ${VIRTUAL_ENV}/bin/activate
 
 RUN uv pip install \
-    torch==2.6.0+cu124 \
+    torch==2.7.0+cu126 \
     botorch \
     datasets \
     einops \
@@ -69,10 +69,11 @@ RUN uv pip install \
     selfies \
     tqdm \
     wandb \
-    --extra-index-url https://download.pytorch.org/whl/cu124
+    --extra-index-url https://download.pytorch.org/whl/cu126
 
 # Install rust
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y \
+    && echo "UV_PROJECT_ENVIRONMENT=${VIRTUAL_ENV}" >> /etc/zsh/zshrc \
     && echo "source ${HOME}/.cargo/env" >> /etc/zsh/zshrc
 
 WORKDIR /workspace/workspace
